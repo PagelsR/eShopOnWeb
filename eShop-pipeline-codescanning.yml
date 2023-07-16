@@ -18,9 +18,6 @@ variables:
   webapp_name: eShopWeb
   advancedsecurity.submittoadvancedsecurity: true
 
-pool:
-  vmImage: windows-latest
-
 stages:
 - stage: 'AdvancedSecurityScan'
   displayName: 'Advanced Security'

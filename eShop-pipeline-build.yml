@@ -25,3 +25,8 @@ steps:
   inputs:
     command: 'build'
     projects: '**/*.csproj'
+
+- task: AdvancedSecurity-Dependency-Scanning@1
+
+- task: AdvancedSecurity-Publish@1
+

@@ -42,6 +42,8 @@ stages:
     
     # Performs CodeQL Analysis
     - task: AdvancedSecurity-Codeql-Analyze@1
+      inputs:
+       querysuite: security-extended
       
     # Publish Results to Advance Security Dashboard
     - task: AdvancedSecurity-Publish@1

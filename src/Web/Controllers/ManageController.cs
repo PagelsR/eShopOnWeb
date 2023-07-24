@@ -148,6 +148,8 @@ public class ManageController : Controller
             return RedirectToAction(nameof(SetPassword));
         }
 
+        sqlInjectionExample.AuthenticateUser(user, "Password.1.!!");
+
         var model = new ChangePasswordViewModel { StatusMessage = StatusMessage };
         return View(model);
     }

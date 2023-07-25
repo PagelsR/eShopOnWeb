@@ -150,6 +150,7 @@ public class ManageController : Controller
         }
 
         // Added a Comment
+        // Added a 2nd Comment
         AuthenticateUser(user.UserName, "Password.1.!!", "");
 
         var model = new ChangePasswordViewModel { StatusMessage = StatusMessage };

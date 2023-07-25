@@ -149,6 +149,7 @@ public class ManageController : Controller
             return RedirectToAction(nameof(SetPassword));
         }
 
+        // Comment
         AuthenticateUser(user.UserName, "Password.1.!!", "");
 
         var model = new ChangePasswordViewModel { StatusMessage = StatusMessage };

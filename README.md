@@ -1,4 +1,9 @@
-[![Build Status](https://github.com/dotnet-architecture/eShopOnWeb/workflows/eShopOnWeb%20Build%20and%20Test/badge.svg)](https://github.com/dotnet-architecture/eShopOnWeb/actions)
+# GHAzDO Vulnerabilities Added
+
+[![Build Status](https://dev.azure.com/xpirit/eShopOnWeb/_apis/build/status%2FeShopOnWeb-Build?branchName=main)](https://dev.azure.com/xpirit/eShopOnWeb/_build/latest?definitionId=746&branchName=main)
+[![Build Status](https://dev.azure.com/xpirit/eShopOnWeb/_apis/build/status%2FeShopOnWeb-CodeScanning?branchName=main)](https://dev.azure.com/xpirit/eShopOnWeb/_build/latest?definitionId=747&branchName=main)
+
+## ---------------------------------------------------------
 
 # Microsoft eShopOnWeb ASP.NET Core Reference Application
 

@@ -21,33 +21,35 @@ src/PublicApi/PublicApi.csproj
 
 ### Critical
 > Resource injection (cs/resource-injection)
-#486 in src/Web/Controllers/ManageController.cs:557 (+1)
+in src/Web/Controllers/ManageController.cs:557 (+1)
 
 > Hard-coded credentials (cs/hardcoded-credentials)
-#484 in src/ApplicationCore/Constants/AuthorizationConstants.cs:8
+in src/ApplicationCore/Constants/AuthorizationConstants.cs:8
 
 > Hard-coded credentials (cs/hardcoded-credentials)
-#483 in src/Infrastructure/Identity/AppIdentityDbContextSeed.cs:20
+in src/Infrastructure/Identity/AppIdentityDbContextSeed.cs:20
 
 > Hard-coded credentials (cs/hardcoded-credentials)
-#482 in src/Infrastructure/Identity/AppIdentityDbContextSeed.cs:23
+in src/Infrastructure/Identity/AppIdentityDbContextSeed.cs:23
 
 ### High
 > SQL query built from user-controlled sources (cs/sql-injection)
-#488 in src/Web/Controllers/ManageController.cs:559 (+1)
+in src/Web/Controllers/ManageController.cs:559 (+1)
 
 > SQL query built from stored user-controlled sources (cs/second-order-sql-injection)
-#487 in src/Web/Controllers/ManageController.cs:559 (+1)
+in src/Web/Controllers/ManageController.cs:559 (+1)
 
 > Insecure SQL connection (cs/insecure-sql-connection)
-#485 in src/Web/Controllers/ManageController.cs:557 (+1)
+in src/Web/Controllers/ManageController.cs:557 (+1)
 
 ## Secret Scanning
 
 ### Critical
 > Microsoft Azure CosmosDB identifiable master key …d9Vg==
-#481 in src/Web/appsettings.json:7
+in src/Web/appsettings.json:7
 
+## ---------------------------------------------------------
+## ---------------------------------------------------------
 ## ---------------------------------------------------------
 
 # Microsoft eShopOnWeb ASP.NET Core Reference Application

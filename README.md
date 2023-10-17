@@ -48,5 +48,5 @@ in src/Web/Controllers/ManageController.cs:557 (+1)
 > Microsoft Azure CosmosDB identifiable master key …d9Vg==
 in src/Web/appsettings.json:7
 
-
+# Reference Application
 [Microsoft eShopOnWeb ASP.NET Core Reference Application](https://github.com/dotnet-architecture/eShopOnWeb) 

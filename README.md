@@ -1,7 +1,9 @@
 # GHAzDO Vulnerabilities Added on Purpose
 
+# Build Status
 [![Build Status](https://dev.azure.com/xpirit/eShopOnWeb/_apis/build/status%2FeShopOnWeb-Build?branchName=main)](https://dev.azure.com/xpirit/eShopOnWeb/_build/latest?definitionId=746&branchName=main)
 
+# Code Scanning Status
 [![Code Scanning Status](https://dev.azure.com/xpirit/eShopOnWeb/_apis/build/status%2FeShopOnWeb-CodeScanning?branchName=main)](https://dev.azure.com/xpirit/eShopOnWeb/_build/latest?definitionId=747&branchName=main)
 
 ## Dependency Scanning

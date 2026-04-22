@@ -1,4 +1,5 @@
 ﻿using Ardalis.GuardClauses;
+using Microsoft.ApplicationInsights;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.eShopWeb.ApplicationCore.Entities;
@@ -13,14 +14,17 @@ public class IndexModel : PageModel
     private readonly IBasketService _basketService;
     private readonly IBasketViewModelService _basketViewModelService;
     private readonly IRepository<CatalogItem> _itemRepository;
+    private readonly TelemetryClient? _telemetryClient;
 
     public IndexModel(IBasketService basketService,
         IBasketViewModelService basketViewModelService,
-        IRepository<CatalogItem> itemRepository)
+        IRepository<CatalogItem> itemRepository,
+        TelemetryClient? telemetryClient = null)
     {
         _basketService = basketService;
         _basketViewModelService = basketViewModelService;
         _itemRepository = itemRepository;
+        _telemetryClient = telemetryClient;
     }
 
     public BasketViewModel BasketModel { get; set; } = new BasketViewModel();

@@ -14,19 +14,19 @@
     <div class="container">
         <form method="get">
             <label class="esh-catalog-label" data-title="brand">
-                <select asp-for="@Model.CatalogModel.BrandFilterApplied" asp-items="@Model.CatalogModel.Brands" class="esh-catalog-filter"></select>
+                <select id="Index-Select-BrandFilter" asp-for="@Model.CatalogModel.BrandFilterApplied" asp-items="@Model.CatalogModel.Brands" class="esh-catalog-filter"></select>
             </label>
             <label class="esh-catalog-label" data-title="type">
-                <select asp-for="@Model.CatalogModel.TypesFilterApplied" asp-items="@Model.CatalogModel.Types" class="esh-catalog-filter"></select>
+                <select id="Index-Select-TypeFilter" asp-for="@Model.CatalogModel.TypesFilterApplied" asp-items="@Model.CatalogModel.Types" class="esh-catalog-filter"></select>
             </label>
-            <input class="esh-catalog-send" type="image" src="~/images/arrow-right.svg" />
+            <input id="Index-Button-ApplyFilter" class="esh-catalog-send" type="image" src="~/images/arrow-right.svg" />
         </form>
     </div>
 </section>
 <div class="container">
     @if (Model.CatalogModel.CatalogItems.Any())
     {
-        <partial name="_pagination" for="CatalogModel.PaginationInfo" />
+        <partial name="_pagination_top" model="Model.CatalogModel.PaginationInfo" />
 
         <div class="esh-catalog-items row">
             @foreach (var catalogItem in Model.CatalogModel.CatalogItems)
@@ -36,11 +36,11 @@
                 </div>
             }
         </div>
-        <partial name="_pagination" for="CatalogModel.PaginationInfo" />
+        <partial name="_pagination_bottom" model="Model.CatalogModel.PaginationInfo" />
     }
     else
     {
-        <div class="esh-catalog-items row">
+        <div id="esh-pager-item-msg" class="esh-catalog-items row">
             @Model.SettingsModel.NoResultsMessage
         </div>
     }

@@ -38,12 +38,16 @@
             </div>
         </header>
         @RenderBody()
-        <footer class="esh-app-footer footer">
+        <footer class="esh-app-footer">
             <div class="container">
                 <article class="row">
-                    <section class="col-sm-6"></section>
                     <section class="col-sm-6">
-                        <div class="esh-app-footer-text hidden-xs"> e-ShopOnWeb. All rights reserved </div>
+                        <img class="esh-app-footer-brand" src="~/images/brand.png" />
+                    </section>
+                    <section class="col-sm-6">
+                        <p class="esh-app-footer-text hidden-xs">Build @Microsoft.eShopWeb.Web.MyAppVersion.GetAssemblyVersion() | @Microsoft.eShopWeb.Web.MyAppVersion.GetDateTimeFromVersion()</p>
+                        <p class="esh-app-footer-text">&copy; eShopOnWeb. All rights reserved</p>
+                        <p class="esh-app-footer-text"><a asp-page="/privacy">Privacy</a></p>
                     </section>
                 </article>
             </div>

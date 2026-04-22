@@ -10,22 +10,22 @@
                 <section class="esh-identity-drop">
                     @if (User.IsInRole("Administrators"))
                     {
-                        <a class="esh-identity-item"
+                        <a id="LoginPartial-Link-Admin" class="esh-identity-item"
                            asp-page="/Admin/Index">
                             <div class="esh-identity-name esh-identity-name--upper">Admin</div>
                         </a>
                     }
-                    <a class="esh-identity-item"
+                    <a id="LoginPartial-Link-MyOrders" class="esh-identity-item"
                        asp-controller="Order"
                        asp-action="MyOrders">
                         <div class="esh-identity-name esh-identity-name--upper">My orders</div>
                     </a>
-                    <a class="esh-identity-item"
+                    <a id="LoginPartial-Link-MyAccount" class="esh-identity-item"
                        asp-controller="Manage"
                        asp-action="MyAccount">
                         <div class="esh-identity-name esh-identity-name--upper">My account</div>
                     </a>
-                    <a class="esh-identity-item" href="javascript:document.getElementById('logoutForm').submit()">
+                    <a id="LoginPartial-Link-Logout" class="esh-identity-item" href="javascript:document.getElementById('logoutForm').submit()">
                         <div class="esh-identity-name esh-identity-name--upper">Log Out</div>
                         <img class="esh-identity-image" src="~/images/logout.png">
                     </a>
@@ -46,7 +46,7 @@ else
             <section class="esh-identity-section">
                 <div class="esh-identity-item">
 
-                    <a asp-area="Identity" asp-page="/Account/Login" class="esh-identity-name esh-identity-name--upper">
+                    <a id="LoginPartial-Link-Login" asp-area="Identity" asp-page="/Account/Login" class="esh-identity-name esh-identity-name--upper">
                         Login
                     </a>
                 </div>

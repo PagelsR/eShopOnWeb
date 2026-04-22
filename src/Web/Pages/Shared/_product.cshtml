@@ -2,7 +2,7 @@
 
 <form asp-page="/Basket/Index" method="post">
     <img class="esh-catalog-thumbnail" src="@Model.PictureUri" />
-    <input class="esh-catalog-button" type="submit" value="[ ADD TO BASKET ]" />
+    <input id="Product-Button-AddToBasket-@Model.Id" class="esh-catalog-button" type="submit" value="[ ADD TO BASKET ]" />
     <div class="esh-catalog-name">
         <span>@Model.Name</span>
     </div>

@@ -51,6 +51,11 @@ public class IndexModel : PageModel
         var basket = await _basketService.AddItemToBasket(username,
             productDetails.Id, item.Price);
 
+        _telemetryClient?.TrackEvent("BasketUpdated", new Dictionary<string, string>
+        {
+            ["itemCount"] = basket.Items.Count.ToString()
+        });
+
         BasketModel = await _basketViewModelService.Map(basket);
 
         return RedirectToPage();

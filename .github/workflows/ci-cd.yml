@@ -17,6 +17,7 @@ permissions:
 env:
   DOTNET_VERSION: '8.0.x'
   CONFIGURATION: Release
+  AZURE_LOCATION: 'eastus'
 
 jobs:
   build:
@@ -121,7 +122,7 @@ jobs:
           
           az deployment sub create \
             --name $DEPLOYMENT_NAME \
-            --location ${{ vars.AZURE_LOCATION || 'eastus' }} \
+            --location ${{ env.AZURE_LOCATION }} \
             --template-file infra/main.bicep \
             --parameters infra/main.parameters.json \
             --parameters resourceGroupName=${{ secrets.AZURE_RESOURCE_GROUP }} \

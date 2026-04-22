@@ -97,8 +97,6 @@ Note that if you use this approach, you'll need to stop the application manually
 After cloning or downloading the sample you must setup your database. 
 To use the sample with a persistent database, you will need to run its Entity Framework Core migrations before you will be able to run the app.
 
-You can also run the samples in Docker (see below).
-
 ### Configuring the sample to use SQL Server
 
 1. By default, the project uses a real database. If you want an in memory database, you can add in the `appsettings.json` file in the Web folder
@@ -139,27 +137,6 @@ You can also run the samples in Docker (see below).
 
     dotnet ef migrations add InitialIdentityModel --context appidentitydbcontext -p ../Infrastructure/Infrastructure.csproj -s Web.csproj -o Identity/Migrations
     ```
-
-## Running the sample in the dev container
-
-This project includes a `.devcontainer` folder with a [dev container configuration](https://containers.dev/), which lets you use a container as a full-featured dev environment.
-
-You can use the dev container to build and run the app without needing to install any of its tools locally! You can work in GitHub Codespaces or the VS Code Dev Containers extension.
-
-Learn more about using the dev container in its [readme](/.devcontainer/devcontainerreadme.md).
-
-## Running the sample using Docker
-
-You can run the Web sample by running these commands from the root folder (where the .sln file is located):
-
-```
-docker-compose build
-docker-compose up
-```
-
-You should be able to make requests to localhost:5106 for the Web project, and localhost:5200 for the Public API project once these commands complete. If you have any problems, especially with login, try from a new guest or incognito browser instance.
-
-You can also run the applications by using the instructions located in their `Dockerfile` file in the root of each project. Again, run these commands from the root of the solution (where the .sln file is located).
 
 ## Community Extensions
 

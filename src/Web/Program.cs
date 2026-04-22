@@ -27,7 +27,7 @@ builder.Logging.AddConsole();
 
 builder.Configuration.AddEnvironmentVariables();
 
-if (builder.Environment.IsDevelopment() || builder.Environment.EnvironmentName == "Docker")
+if (builder.Environment.IsDevelopment())
 {
     // Configure SQL Server (local)
     Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
@@ -227,7 +227,7 @@ app.UseHealthChecks("/health",
             await context.Response.WriteAsync(result);
         }
     });
-if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "Docker")
+if (app.Environment.IsDevelopment())
 {
     app.Logger.LogInformation("Adding Development middleware...");
     app.UseDeveloperExceptionPage();

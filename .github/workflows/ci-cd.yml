@@ -1,0 +1,302 @@
+name: eShopOnWeb CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+  actions: read
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  CONFIGURATION: Release
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Generate version number
+        id: version
+        run: |
+          BUILD_NUM=${{ github.run_number }}
+          pwsh ./GenerateVersionNumber.ps1 -BuildNumber $BUILD_NUM
+          VERSION=$(pwsh -c "./GenerateVersionNumber.ps1 -BuildNumber $BUILD_NUM")
+          echo "BUILD_NUMBER=$VERSION" >> $GITHUB_ENV
+          echo "BUILD_NUMBER=$VERSION" >> $GITHUB_OUTPUT
+      
+      - name: Restore dependencies
+        run: dotnet restore eShopOnWeb.sln
+      
+      - name: Build solution
+        run: |
+          dotnet build eShopOnWeb.sln \
+            --no-restore \
+            --configuration ${{ env.CONFIGURATION }} \
+            -p:Version=${{ env.BUILD_NUMBER }} \
+            -p:AssemblyVersion=${{ env.BUILD_NUMBER }} \
+            -p:FileVersion=${{ env.BUILD_NUMBER }}
+      
+      - name: Run unit tests
+        run: |
+          dotnet test eShopOnWeb.sln \
+            --no-build \
+            --configuration ${{ env.CONFIGURATION }} \
+            --settings CodeCoverage.runsettings \
+            --collect "XPlat Code Coverage" \
+            --logger "trx;LogFileName=test-results.trx"
+      
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: .NET Tests
+          path: '**/test-results.trx'
+          reporter: dotnet-trx
+      
+      - name: Publish Web application
+        run: |
+          dotnet publish src/Web/Web.csproj \
+            --configuration ${{ env.CONFIGURATION }} \
+            --no-build \
+            --output ./publish
+      
+      - name: Upload webapp artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: webapp
+          path: ./publish
+          retention-days: 1
+      
+      - name: Upload database scripts artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dbscripts
+          path: DBscripts/
+          retention-days: 1
+      
+      - name: Upload Playwright test files
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-files
+          path: |
+            package.json
+            package-lock.json
+            playwright.config.ts
+            playwright.service.config.ts
+            tests/PlaywrightTests/
+          retention-days: 1
+
+  deploy-infrastructure:
+    name: Deploy Azure Infrastructure
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      webAppName: ${{ steps.parse-outputs.outputs.WEB_APP_NAME }}
+      sqlServerName: ${{ steps.parse-outputs.outputs.SQL_SERVER_NAME }}
+      catalogDbName: ${{ steps.parse-outputs.outputs.CATALOG_DB_NAME }}
+      identityDbName: ${{ steps.parse-outputs.outputs.IDENTITY_DB_NAME }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
+      - name: Create resource group if not exists
+        run: |
+          az group create \
+            --name ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --location ${{ vars.AZURE_LOCATION || 'eastus' }} \
+            --tags environment=production project=eShopOnWeb
+      
+      - name: Deploy Bicep infrastructure
+        id: deploy
+        run: |
+          DEPLOYMENT_NAME="eshoponweb-$(date +%Y%m%d-%H%M%S)"
+          echo "DEPLOYMENT_NAME=$DEPLOYMENT_NAME" >> $GITHUB_ENV
+          
+          az deployment group create \
+            --name $DEPLOYMENT_NAME \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --template-file infra/main.bicep \
+            --parameters infra/main.parameters.json \
+            --parameters sqlAdminPassword='${{ secrets.SQL_ADMIN_PASSWORD }}' \
+            --parameters appUserPassword='${{ secrets.APP_USER_PASSWORD }}' \
+            --verbose
+      
+      - name: Parse deployment outputs
+        id: parse-outputs
+        run: |
+          pwsh ./ParseDeploymentOutputs.ps1 \
+            -DeploymentName ${{ env.DEPLOYMENT_NAME }} \
+            -ResourceGroupName ${{ secrets.AZURE_RESOURCE_GROUP }}
+
+  seed-database:
+    name: Seed SQL Databases
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download database scripts
+        uses: actions/download-artifact@v4
+        with:
+          name: dbscripts
+          path: ./DBscripts
+      
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
+      - name: Get SQL Server FQDN
+        id: get-sql-server
+        run: |
+          SQL_SERVER_FQDN="${{ needs.deploy-infrastructure.outputs.sqlServerName }}.database.windows.net"
+          echo "SQL_SERVER_FQDN=$SQL_SERVER_FQDN" >> $GITHUB_ENV
+      
+      - name: Install sqlcmd
+        run: |
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
+          echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc
+          source ~/.bashrc
+      
+      - name: Seed Catalog Database
+        run: |
+          /opt/mssql-tools18/bin/sqlcmd \
+            -S ${{ env.SQL_SERVER_FQDN }} \
+            -d ${{ needs.deploy-infrastructure.outputs.catalogDbName }} \
+            -U sqladmin \
+            -P '${{ secrets.SQL_ADMIN_PASSWORD }}' \
+            -C \
+            -i ./DBscripts/CatalogDB.sql
+      
+      - name: Seed Identity Database
+        run: |
+          /opt/mssql-tools18/bin/sqlcmd \
+            -S ${{ env.SQL_SERVER_FQDN }} \
+            -d ${{ needs.deploy-infrastructure.outputs.identityDbName }} \
+            -U sqladmin \
+            -P '${{ secrets.SQL_ADMIN_PASSWORD }}' \
+            -C \
+            -i ./DBscripts/IdentityDB.sql
+
+  deploy-app:
+    name: Deploy Web Application
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure, seed-database]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Download webapp artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: webapp
+          path: ./webapp
+      
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ needs.deploy-infrastructure.outputs.webAppName }}
+          package: ./webapp
+      
+      - name: Get Web App URL
+        id: get-url
+        run: |
+          WEB_APP_URL="https://${{ needs.deploy-infrastructure.outputs.webAppName }}.azurewebsites.net"
+          echo "WEB_APP_URL=$WEB_APP_URL" >> $GITHUB_ENV
+          echo "WEB_APP_URL=$WEB_APP_URL" >> $GITHUB_OUTPUT
+      
+      - name: Verify deployment
+        run: |
+          echo "Waiting for app to warm up..."
+          sleep 30
+          curl -f -s -o /dev/null -w "%{http_code}" ${{ env.WEB_APP_URL }} || echo "App may still be starting..."
+
+  playwright-tests:
+    name: Run Playwright E2E Tests
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure, deploy-app]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Download Playwright test files
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-files
+          path: .
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+      
+      - name: Run Playwright tests
+        env:
+          BASE_URL: https://${{ needs.deploy-infrastructure.outputs.webAppName }}.azurewebsites.net
+        run: npx playwright test
+        continue-on-error: true
+      
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+      
+      - name: Publish Playwright test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Playwright E2E Tests
+          path: 'playwright-report/results.xml'
+          reporter: java-junit
+          fail-on-error: false

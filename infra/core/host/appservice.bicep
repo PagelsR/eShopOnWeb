@@ -1,11 +1,23 @@
+@description('App Service name')
 param name string
+
+@description('Location for the App Service')
 param location string = resourceGroup().location
+
+@description('Resource tags')
 param tags object = {}
 
 // Reference Properties
+@description('Application Insights instance name for monitoring')
 param applicationInsightsName string = ''
+
+@description('App Service Plan ID (resource ID)')
 param appServicePlanId string
+
+@description('Key Vault name for storing secrets')
 param keyVaultName string = ''
+
+@description('Enable managed identity (auto-enabled if keyVaultName is provided)')
 param managedIdentity bool = !empty(keyVaultName)
 
 // Runtime Properties

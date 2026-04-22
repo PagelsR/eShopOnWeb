@@ -1,19 +1,36 @@
+@description('SQL Server name')
 param name string
+
+@description('Location for the SQL Server')
 param location string = resourceGroup().location
+
+@description('Resource tags')
 param tags object = {}
 
+@description('Application user name for database access')
 param appUser string = 'appUser'
+
+@description('Database name')
 param databaseName string
+
+@description('Key Vault name for storing secrets')
 param keyVaultName string
+
+@description('SQL Server administrator login')
 param sqlAdmin string = 'sqlAdmin'
+
+@description('Connection string key name in Key Vault')
 param connectionStringKey string = 'AZURE-SQL-CONNECTION-STRING'
 
+@description('SQL Server administrator password')
 @secure()
 param sqlAdminPassword string
+
+@description('Application user password')
 @secure()
 param appUserPassword string
 
-resource sqlServer 'Microsoft.Sql/servers@2022-05-01-preview' = {
+resource sqlServer 'Microsoft.Sql/servers@2023-05-01-preview' = {
   name: name
   location: location
   tags: tags

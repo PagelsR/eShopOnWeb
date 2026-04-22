@@ -26,18 +26,18 @@ if ($deployment.PSObject.Properties['sqlServerName']) {
     Write-Output "SQL_SERVER_NAME=$sqlServerName" >> $env:GITHUB_OUTPUT
 }
 
-# Extract catalog database name
-if ($deployment.PSObject.Properties['AZURE_SQL_CATALOG_DATABASE_NAME']) {
-    $catalogDbName = $deployment.AZURE_SQL_CATALOG_DATABASE_NAME.value
-    Write-Host "CATALOG_DB_NAME=$catalogDbName"
-    Write-Output "CATALOG_DB_NAME=$catalogDbName" >> $env:GITHUB_OUTPUT
+# Extract SQL server FQDN
+if ($deployment.PSObject.Properties['sqlServerFqdn']) {
+    $sqlServerFqdn = $deployment.sqlServerFqdn.value
+    Write-Host "SQL_SERVER_FQDN=$sqlServerFqdn"
+    Write-Output "SQL_SERVER_FQDN=$sqlServerFqdn" >> $env:GITHUB_OUTPUT
 }
 
-# Extract identity database name
-if ($deployment.PSObject.Properties['AZURE_SQL_IDENTITY_DATABASE_NAME']) {
-    $identityDbName = $deployment.AZURE_SQL_IDENTITY_DATABASE_NAME.value
-    Write-Host "IDENTITY_DB_NAME=$identityDbName"
-    Write-Output "IDENTITY_DB_NAME=$identityDbName" >> $env:GITHUB_OUTPUT
+# Extract database name
+if ($deployment.PSObject.Properties['databaseName']) {
+    $databaseName = $deployment.databaseName.value
+    Write-Host "DATABASE_NAME=$databaseName"
+    Write-Output "DATABASE_NAME=$databaseName" >> $env:GITHUB_OUTPUT
 }
 
 Write-Host "Deployment outputs parsed successfully"

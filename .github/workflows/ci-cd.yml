@@ -136,8 +136,8 @@ jobs:
     outputs:
       webAppName: ${{ steps.parse-outputs.outputs.WEB_APP_NAME }}
       sqlServerName: ${{ steps.parse-outputs.outputs.SQL_SERVER_NAME }}
-      catalogDbName: ${{ steps.parse-outputs.outputs.CATALOG_DB_NAME }}
-      identityDbName: ${{ steps.parse-outputs.outputs.IDENTITY_DB_NAME }}
+      sqlServerFqdn: ${{ steps.parse-outputs.outputs.SQL_SERVER_FQDN }}
+      databaseName: ${{ steps.parse-outputs.outputs.DATABASE_NAME }}
     
     steps:
       - name: Checkout code
@@ -188,7 +188,7 @@ jobs:
           echo "| Deployment | ${{ env.DEPLOYMENT_NAME }} |" >> $GITHUB_STEP_SUMMARY
 
   seed-database:
-    name: 2️⃣ Seed SQL Databases
+    name: 2️⃣ Seed SQL Database
     runs-on: ubuntu-latest
     needs: deploy-infrastructure
     if: github.ref == 'refs/heads/main'
@@ -210,12 +210,6 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
       
-      - name: Get SQL Server FQDN
-        id: get-sql-server
-        run: |
-          SQL_SERVER_FQDN="${{ needs.deploy-infrastructure.outputs.sqlServerName }}.database.windows.net"
-          echo "SQL_SERVER_FQDN=$SQL_SERVER_FQDN" >> $GITHUB_ENV
-      
       - name: Install sqlcmd
         run: |
           curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
@@ -225,29 +219,21 @@ jobs:
           echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc
           source ~/.bashrc
       
-      - name: Seed Catalog Database
+      - name: Seed eShopOnWeb Database
         run: |
-          echo "Seeding Catalog Database..."
+          echo "Seeding eShopOnWeb Database..."
+          echo "Server: ${{ needs.deploy-infrastructure.outputs.sqlServerFqdn }}"
+          echo "Database: ${{ needs.deploy-infrastructure.outputs.databaseName }}"
+          
           /opt/mssql-tools18/bin/sqlcmd \
-            -S ${{ env.SQL_SERVER_FQDN }} \
-            -d ${{ needs.deploy-infrastructure.outputs.catalogDbName }} \
+            -S ${{ needs.deploy-infrastructure.outputs.sqlServerFqdn }} \
+            -d ${{ needs.deploy-infrastructure.outputs.databaseName }} \
             -U sqlAdmin \
             -P '${{ secrets.SQL_ADMIN_PASSWORD }}' \
             -C \
-            -i ./DBscripts/CatalogDB.sql
-          echo "✅ Catalog database seeded successfully"
-      
-      - name: Seed Identity Database
-        run: |
-          echo "Seeding Identity Database..."
-          /opt/mssql-tools18/bin/sqlcmd \
-            -S ${{ env.SQL_SERVER_FQDN }} \
-            -d ${{ needs.deploy-infrastructure.outputs.identityDbName }} \
-            -U sqlAdmin \
-            -P '${{ secrets.SQL_ADMIN_PASSWORD }}' \
-            -C \
-            -i ./DBscripts/IdentityDB.sql
-          echo "✅ Identity database seeded successfully"
+            -i ./DBscripts/eShopOnWeb.sql
+          
+          echo "✅ Database seeded successfully"
 
   deploy-app:
     name: 3️⃣ Deploy Web Application

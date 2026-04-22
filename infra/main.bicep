@@ -105,35 +105,19 @@ module apiKeyVaultAccess './core/security/keyvault-access.bicep' = {
   }
 }
 
-// The application database: Catalog
-module catalogDb './core/database/sqlserver/sqlserver.bicep' = {
-  name: 'sql-catalog'
+// The application database - single SQL Server with one database
+module sqlDatabase './core/database/sqlserver/sqlserver.bicep' = {
+  name: 'sql-eshoponweb'
   scope: rg
   params: {
-    name: !empty(catalogDatabaseServerName) ? catalogDatabaseServerName : '${abbrs.sqlServers}catalog-${resourceToken}'
-    databaseName: catalogDatabaseName
+    name: !empty(catalogDatabaseServerName) ? catalogDatabaseServerName : '${abbrs.sqlServers}${resourceToken}'
+    databaseName: 'eShopOnWeb'
     location: location
     tags: tags
     sqlAdminPassword: sqlAdminPassword
     appUserPassword: appUserPassword
     keyVaultName: keyVault.outputs.name
-    connectionStringKey: 'AZURE-SQL-CATALOG-CONNECTION-STRING'
-  }
-}
-
-// The application database: Identity
-module identityDb './core/database/sqlserver/sqlserver.bicep' = {
-  name: 'sql-identity'
-  scope: rg
-  params: {
-    name: !empty(identityDatabaseServerName) ? identityDatabaseServerName : '${abbrs.sqlServers}identity-${resourceToken}'
-    databaseName: identityDatabaseName
-    location: location
-    tags: tags
-    sqlAdminPassword: sqlAdminPassword
-    appUserPassword: appUserPassword
-    keyVaultName: keyVault.outputs.name
-    connectionStringKey: 'AZURE-SQL-IDENTITY-CONNECTION-STRING'
+    connectionStringKey: 'AZURE-SQL-CONNECTION-STRING'
   }
 }
 
@@ -165,10 +149,8 @@ module appServicePlan './core/host/appserviceplan.bicep' = {
 }
 
 // Data outputs
-output AZURE_SQL_CATALOG_CONNECTION_STRING_KEY string = catalogDb.outputs.connectionStringKey
-output AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY string = identityDb.outputs.connectionStringKey
-output AZURE_SQL_CATALOG_DATABASE_NAME string = catalogDb.outputs.databaseName
-output AZURE_SQL_IDENTITY_DATABASE_NAME string = identityDb.outputs.databaseName
+output AZURE_SQL_CONNECTION_STRING_KEY string = sqlDatabase.outputs.connectionStringKey
+output AZURE_SQL_DATABASE_NAME string = sqlDatabase.outputs.databaseName
 
 // App outputs
 output AZURE_LOCATION string = location
@@ -178,7 +160,9 @@ output AZURE_KEY_VAULT_NAME string = keyVault.outputs.name
 
 // Deployment outputs for CI/CD pipeline
 output webAppName string = web.outputs.name
-output sqlServerName string = !empty(catalogDatabaseServerName) ? catalogDatabaseServerName : '${abbrs.sqlServers}catalog-${resourceToken}'
+output sqlServerName string = sqlDatabase.outputs.sqlServerName
+output sqlServerFqdn string = sqlDatabase.outputs.sqlServerFqdn
+output databaseName string = sqlDatabase.outputs.databaseName
 
 // Application Insights outputs
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = deployAppInsights ? appInsights.outputs.appInsightsConnectionString : ''

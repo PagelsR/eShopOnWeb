@@ -85,8 +85,10 @@ builder.Services.AddControllers();
 builder.Services.AddAutoMapper(typeof(MappingProfile).Assembly);
 builder.Configuration.AddEnvironmentVariables();
 
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
     c.EnableAnnotations();
@@ -120,7 +122,8 @@ builder.Services.AddSwaggerGen(c =>
                         new List<string>()
                     }
             });
-});
+    });
+}
 
 var app = builder.Build();
 
@@ -150,6 +153,13 @@ using (var scope = app.Services.CreateScope())
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
+    // Enable middleware to serve generated Swagger as a JSON endpoint.
+    app.UseSwagger();
+    // Enable middleware to serve swagger-ui (HTML, JS, CSS, etc.)
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
+    });
 }
 
 app.UseMiddleware<ExceptionMiddleware>();
@@ -161,16 +171,6 @@ app.UseRouting();
 app.UseCors(CORS_POLICY);
 
 app.UseAuthorization();
-
-// Enable middleware to serve generated Swagger as a JSON endpoint.
-app.UseSwagger();
-
-// Enable middleware to serve swagger-ui (HTML, JS, CSS, etc.), 
-// specifying the Swagger JSON endpoint.
-app.UseSwaggerUI(c =>
-{
-    c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API V1");
-});
 
 app.MapControllers();
 app.MapEndpoints();

@@ -36,10 +36,9 @@ jobs:
         id: version
         run: |
           BUILD_NUM=${{ github.run_number }}
-          pwsh ./GenerateVersionNumber.ps1 -BuildNumber $BUILD_NUM
-          VERSION=$(pwsh -c "./GenerateVersionNumber.ps1 -BuildNumber $BUILD_NUM")
+          VERSION=$(pwsh -File ./GenerateVersionNumber.ps1 -BuildNumber $BUILD_NUM)
           echo "BUILD_NUMBER=$VERSION" >> $GITHUB_ENV
-          echo "BUILD_NUMBER=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
       
       - name: Restore dependencies
         run: dotnet restore eShopOnWeb.sln

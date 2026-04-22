@@ -8,5 +8,4 @@ param(
 $date = Get-Date -Format "yyyy.MM.dd"
 $version = "$date.$BuildNumber"
 
-Write-Host "##[set-output name=BUILD_NUMBER]$version"
 Write-Output $version

@@ -3,16 +3,12 @@
 
 param(
     [Parameter(Mandatory=$true)]
-    [string]$DeploymentName,
-    
-    [Parameter(Mandatory=$true)]
-    [string]$ResourceGroupName
+    [string]$DeploymentName
 )
 
 # Get deployment outputs
-$deployment = az deployment group show `
+$deployment = az deployment sub show `
     --name $DeploymentName `
-    --resource-group $ResourceGroupName `
     --query properties.outputs `
     -o json | ConvertFrom-Json
 

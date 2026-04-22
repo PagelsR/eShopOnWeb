@@ -17,7 +17,7 @@ permissions:
 env:
   DOTNET_VERSION: '8.0.x'
   CONFIGURATION: Release
-  AZURE_LOCATION: 'eastus'
+  AZURE_LOCATION: 'eastus2'
 
 # ============================================================================
 # REQUIRED SECRETS CONFIGURATION

@@ -31,6 +31,10 @@ env:
 # SQL_ADMIN_PASSWORD     - SQL Server admin password (strong password required)
 # APP_USER_PASSWORD      - Application user password for database access
 #
+# OPTIONAL SECRETS:
+# ADMIN_OBJECT_ID        - Your Azure AD Object ID for full Key Vault access
+#                          Get it: az ad signed-in-user show --query id -o tsv
+#
 # Setup OIDC: https://docs.github.com/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-azure
 # ============================================================================
 
@@ -162,6 +166,7 @@ jobs:
             --parameters resourceGroupName=${{ secrets.AZURE_RESOURCE_GROUP }} \
             --parameters sqlAdminPassword='${{ secrets.SQL_ADMIN_PASSWORD }}' \
             --parameters appUserPassword='${{ secrets.APP_USER_PASSWORD }}' \
+            --parameters adminObjectId='${{ secrets.ADMIN_OBJECT_ID }}' \
             --verbose
       
       - name: Parse deployment outputs

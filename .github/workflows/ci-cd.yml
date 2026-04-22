@@ -96,7 +96,7 @@ jobs:
     name: Deploy Azure Infrastructure
     runs-on: ubuntu-latest
     needs: build
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     outputs:
       webAppName: ${{ steps.parse-outputs.outputs.WEB_APP_NAME }}
       sqlServerName: ${{ steps.parse-outputs.outputs.SQL_SERVER_NAME }}
@@ -140,7 +140,7 @@ jobs:
     name: Seed SQL Databases
     runs-on: ubuntu-latest
     needs: deploy-infrastructure
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     
     steps:
       - name: Checkout code
@@ -198,7 +198,7 @@ jobs:
     name: Deploy Web Application
     runs-on: ubuntu-latest
     needs: [deploy-infrastructure, seed-database]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     
     steps:
       - name: Download webapp artifact

@@ -33,6 +33,9 @@ param sqlAdminPassword string
 @description('Application user password')
 param appUserPassword string
 
+@description('Deploy Application Insights for monitoring and observability')
+param deployAppInsights bool = true
+
 var abbrs = loadJsonContent('./abbreviations.json')
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
 var tags = { 'azd-env-name': environmentName }
@@ -42,6 +45,30 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: !empty(resourceGroupName) ? resourceGroupName : '${abbrs.resourcesResourceGroups}${environmentName}'
   location: location
   tags: tags
+}
+
+// Application Insights for monitoring and observability
+module appInsights './modules/appinsights.bicep' = if (deployAppInsights) {
+  name: 'appinsights'
+  scope: rg
+  params: {
+    location: location
+    resourceNamePrefix: resourceToken
+    webAppUrl: 'https://${!empty(webServiceName) ? webServiceName : '${abbrs.webSitesAppService}web-${resourceToken}'}.azurewebsites.net'
+    tags: tags
+  }
+}
+
+// Azure Dashboard for Application Insights visualization
+module dashboard './modules/dashboard.bicep' = if (deployAppInsights) {
+  name: 'dashboard'
+  scope: rg
+  params: {
+    location: location
+    resourceNamePrefix: resourceToken
+    appInsightsId: deployAppInsights ? appInsights.outputs.appInsightsId : ''
+    tags: tags
+  }
 }
 
 // The application frontend
@@ -56,11 +83,13 @@ module web './core/host/appservice.bicep' = {
     runtimeName: 'dotnetcore'
     runtimeVersion: '8.0'
     tags: union(tags, { 'azd-service-name': 'web' })
-    appSettings: {
+    appSettings: union({
       AZURE_SQL_CATALOG_CONNECTION_STRING_KEY: 'AZURE-SQL-CATALOG-CONNECTION-STRING'
       AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY: 'AZURE-SQL-IDENTITY-CONNECTION-STRING'
       AZURE_KEY_VAULT_ENDPOINT: keyVault.outputs.endpoint
-    }
+    }, deployAppInsights ? {
+      APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.outputs.appInsightsConnectionString
+    } : {})
   }
 }
 
@@ -142,3 +171,11 @@ output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenant().tenantId
 output AZURE_KEY_VAULT_ENDPOINT string = keyVault.outputs.endpoint
 output AZURE_KEY_VAULT_NAME string = keyVault.outputs.name
+
+// Deployment outputs for CI/CD pipeline
+output webAppName string = web.outputs.name
+output sqlServerName string = !empty(catalogDatabaseServerName) ? catalogDatabaseServerName : '${abbrs.sqlServers}catalog-${resourceToken}'
+
+// Application Insights outputs
+output APPLICATIONINSIGHTS_CONNECTION_STRING string = deployAppInsights ? appInsights.outputs.appInsightsConnectionString : ''
+output APPLICATIONINSIGHTS_INSTRUMENTATION_KEY string = deployAppInsights ? appInsights.outputs.appInsightsInstrumentationKey : ''

@@ -227,23 +227,27 @@ jobs:
       
       - name: Seed Catalog Database
         run: |
+          echo "Seeding Catalog Database..."
           /opt/mssql-tools18/bin/sqlcmd \
             -S ${{ env.SQL_SERVER_FQDN }} \
             -d ${{ needs.deploy-infrastructure.outputs.catalogDbName }} \
-            -U sqladmin \
+            -U sqlAdmin \
             -P '${{ secrets.SQL_ADMIN_PASSWORD }}' \
             -C \
             -i ./DBscripts/CatalogDB.sql
+          echo "✅ Catalog database seeded successfully"
       
       - name: Seed Identity Database
         run: |
+          echo "Seeding Identity Database..."
           /opt/mssql-tools18/bin/sqlcmd \
             -S ${{ env.SQL_SERVER_FQDN }} \
             -d ${{ needs.deploy-infrastructure.outputs.identityDbName }} \
-            -U sqladmin \
+            -U sqlAdmin \
             -P '${{ secrets.SQL_ADMIN_PASSWORD }}' \
             -C \
             -i ./DBscripts/IdentityDB.sql
+          echo "✅ Identity database seeded successfully"
 
   deploy-app:
     name: 3️⃣ Deploy Web Application

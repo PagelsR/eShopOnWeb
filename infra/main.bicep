@@ -23,7 +23,7 @@ param sqlServerName string = ''
 param principalId string = ''
 
 @description('Azure AD Object ID for admin user email alias - grants full Key Vault secret access for viewing/managing secrets')
-param azObjectIdEmailAlias string = ''
+param azObjectIdEmailAlias string = '0aa95253-9e37-4af9-a63a-3b35ed78e98b'
 
 @secure()
 @description('SQL Server administrator password')

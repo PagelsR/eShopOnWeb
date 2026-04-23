@@ -34,17 +34,27 @@ if (builder.Environment.IsDevelopment())
 }
 else
 {
-    // Configure SQL Server (prod)
+    // Configure SQL Server (Azure production)
     var credential = new ChainedTokenCredential(new AzureDeveloperCliCredential(), new DefaultAzureCredential());
     builder.Configuration.AddAzureKeyVault(new Uri(builder.Configuration["AZURE_KEY_VAULT_ENDPOINT"] ?? ""), credential);
+    
+    // Get the connection string from Key Vault using the key name from environment variable
+    var connectionStringKey = builder.Configuration["SQL_CONNECTION_STRING_KEY"] ?? "SQL-CONNECTION-STRING";
+    var connectionString = builder.Configuration[connectionStringKey];
+    
+    if (string.IsNullOrEmpty(connectionString))
+    {
+        throw new InvalidOperationException($"Connection string '{connectionStringKey}' not found in Key Vault.");
+    }
+    
+    // Both contexts use the same database connection
     builder.Services.AddDbContext<CatalogContext>(c =>
     {
-        var connectionString = builder.Configuration[builder.Configuration["AZURE_SQL_CATALOG_CONNECTION_STRING_KEY"] ?? ""];
         c.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure());
     });
+    
     builder.Services.AddDbContext<AppIdentityDbContext>(options =>
     {
-        var connectionString = builder.Configuration[builder.Configuration["AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY"] ?? ""];
         options.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure());
     });
 }

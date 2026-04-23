@@ -15,12 +15,9 @@ param location string
 // }
 param resourceGroupName string = ''
 param webServiceName string = ''
-param catalogDatabaseName string = 'catalogDatabase'
-param catalogDatabaseServerName string = ''
-param identityDatabaseName string = 'identityDatabase'
-param identityDatabaseServerName string = ''
 param appServicePlanName string = ''
 param keyVaultName string = ''
+param sqlServerName string = ''
 
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
@@ -31,10 +28,6 @@ param adminObjectId string = ''
 @secure()
 @description('SQL Server administrator password')
 param sqlAdminPassword string
-
-@secure()
-@description('Application user password')
-param appUserPassword string
 
 @description('Deploy Application Insights for monitoring and observability')
 param deployAppInsights bool = true
@@ -87,8 +80,7 @@ module web './core/host/appservice.bicep' = {
     runtimeVersion: '8.0'
     tags: union(tags, { 'azd-service-name': 'web' })
     appSettings: union({
-      AZURE_SQL_CATALOG_CONNECTION_STRING_KEY: 'AZURE-SQL-CONNECTION-STRING'
-      AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY: 'AZURE-SQL-CONNECTION-STRING'
+      SQL_CONNECTION_STRING_KEY: 'SQL-CONNECTION-STRING'
       AZURE_KEY_VAULT_ENDPOINT: keyVault.outputs.endpoint
     }, deployAppInsights ? {
       APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.outputs.appInsightsConnectionString
@@ -110,14 +102,13 @@ module sqlDatabase './core/database/sqlserver/sqlserver.bicep' = {
   name: 'sql-eshoponweb'
   scope: rg
   params: {
-    name: !empty(catalogDatabaseServerName) ? catalogDatabaseServerName : '${abbrs.sqlServers}${resourceToken}'
+    name: !empty(sqlServerName) ? sqlServerName : '${abbrs.sqlServers}${resourceToken}'
     databaseName: 'eShopOnWeb'
     location: location
     tags: tags
     sqlAdminPassword: sqlAdminPassword
-    appUserPassword: appUserPassword
     keyVaultName: keyVault.outputs.name
-    connectionStringKey: 'AZURE-SQL-CONNECTION-STRING'
+    connectionStringKey: 'SQL-CONNECTION-STRING'
   }
 }
 
@@ -149,8 +140,8 @@ module appServicePlan './core/host/appserviceplan.bicep' = {
 }
 
 // Data outputs
-output AZURE_SQL_CONNECTION_STRING_KEY string = sqlDatabase.outputs.connectionStringKey
-output AZURE_SQL_DATABASE_NAME string = sqlDatabase.outputs.databaseName
+output SQL_CONNECTION_STRING_KEY string = sqlDatabase.outputs.connectionStringKey
+output SQL_DATABASE_NAME string = sqlDatabase.outputs.databaseName
 
 // App outputs
 output AZURE_LOCATION string = location

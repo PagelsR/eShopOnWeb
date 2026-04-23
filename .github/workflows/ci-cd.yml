@@ -165,7 +165,6 @@ jobs:
             --parameters environmentName=eshoponweb \
             --parameters resourceGroupName=${{ secrets.AZURE_RESOURCE_GROUP }} \
             --parameters sqlAdminPassword='${{ secrets.SQL_ADMIN_PASSWORD }}' \
-            --parameters appUserPassword='${{ secrets.APP_USER_PASSWORD }}' \
             --parameters adminObjectId='${{ secrets.ADMIN_OBJECT_ID }}' \
             --verbose
       

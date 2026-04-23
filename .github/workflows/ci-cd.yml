@@ -165,7 +165,7 @@ jobs:
             --parameters environmentName=eshoponweb \
             --parameters resourceGroupName=${{ secrets.AZURE_RESOURCE_GROUP }} \
             --parameters sqlAdminPassword='${{ secrets.SQL_ADMIN_PASSWORD }}' \
-            --parameters adminObjectId='${{ secrets.ADMIN_OBJECT_ID }}' \
+            --parameters azObjectIdEmailAlias='${{ secrets.ADMIN_OBJECT_ID }}' \
             --verbose
       
       - name: Parse deployment outputs

@@ -22,8 +22,8 @@ param sqlServerName string = ''
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
 
-@description('Azure AD Object ID for admin user - grants full Key Vault secret access for viewing/managing secrets')
-param adminObjectId string = ''
+@description('Azure AD Object ID for admin user email alias - grants full Key Vault secret access for viewing/managing secrets')
+param azObjectIdEmailAlias string = ''
 
 @secure()
 @description('SQL Server administrator password')
@@ -121,7 +121,7 @@ module keyVault './core/security/keyvault.bicep' = {
     location: location
     tags: tags
     principalId: principalId
-    adminObjectId: adminObjectId
+    azObjectIdEmailAlias: azObjectIdEmailAlias
   }
 }
 

@@ -87,8 +87,8 @@ module web './core/host/appservice.bicep' = {
     runtimeVersion: '8.0'
     tags: union(tags, { 'azd-service-name': 'web' })
     appSettings: union({
-      AZURE_SQL_CATALOG_CONNECTION_STRING_KEY: 'AZURE-SQL-CATALOG-CONNECTION-STRING'
-      AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY: 'AZURE-SQL-IDENTITY-CONNECTION-STRING'
+      AZURE_SQL_CATALOG_CONNECTION_STRING_KEY: 'AZURE-SQL-CONNECTION-STRING'
+      AZURE_SQL_IDENTITY_CONNECTION_STRING_KEY: 'AZURE-SQL-CONNECTION-STRING'
       AZURE_KEY_VAULT_ENDPOINT: keyVault.outputs.endpoint
     }, deployAppInsights ? {
       APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.outputs.appInsightsConnectionString

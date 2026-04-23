@@ -60,9 +60,9 @@ resource sqlAdminPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' =
   }
 }
 
-resource appUserPasswordSecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' = {
+resource sqlConnectionStringSecret 'Microsoft.KeyVault/vaults/secrets@2022-07-01' = {
   parent: keyVault
-  name: 'appUserPassword'
+  name: connectionStringKey
   properties: {
     value: 'Server=${sqlServer.properties.fullyQualifiedDomainName};Database=${sqlServer::database.name};User ID=${sqlAdmin};Password=${sqlAdminPassword};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;'
   }

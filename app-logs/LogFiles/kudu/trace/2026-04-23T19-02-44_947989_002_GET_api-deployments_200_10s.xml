@@ -1,0 +1,9 @@
+<step title="Incoming Request" date="2026-04-23T19:02:44.811" instance="947989" url="/api/deployments?warmup=true" method="GET" type="request" pid="833,1,5" Host="app-web-uifggh2tkbo2y.scm.azurewebsites.net" User-Agent="GITHUBACTIONS_DeployWebAppToAzure_54482fe52e837e9e60e69a1e59968aec39a8e052d65598f63f9703995ee1192b_v3.0.8" Authorization="Bea..." Content-Type="application/json; charset=utf-8" Cookie="ARRAffinity=9479898e640ac2bbed00a897c54a5c13a9242deded8f7fd8555e0ebe43a497a0; ARRAffinitySameSite=9479898e640ac2bbed00a897c54a5c13a9242deded8f7fd8555e0ebe43a497a0" Content-Length="0" X-ARR-LOG-ID="783a0119-e6aa-4324-9cff-ba292816c9fb" CLIENT-IP="20.168.106.242:3088" X-SITE-DEPLOYMENT-ID="app-web-uifggh2tkbo2y" WAS-DEFAULT-HOSTNAME="app-web-uifggh2tkbo2y.scm.azurewebsites.net" X-Forwarded-Proto="https" X-AppService-Proto="https" X-Forwarded-TlsVersion="1.3" X-WAWS-Unencoded-URL="/api/deployments?warmup=true" X-Client-IP="20.168.106.242" X-Client-Port="3088" >
+  <step title="DeploymentService.GetCurrentEtag" date="2026-04-23T19:02:51.831" >
+    <step title="Current Etag: &quot;8dea163e0dcf2eb&quot;, Cached Etag: " date="2026-04-23T19:02:53.125" /><!-- duration: 189ms -->
+  </step><!-- duration: 1593ms -->
+  <step title="DeploymentService.GetDeployResults" date="2026-04-23T19:02:53.465" >
+    <step title="DeploymentManager.GetResults" date="2026-04-23T19:02:53.544" /><!-- duration: 938ms -->
+  </step><!-- duration: 1087ms -->
+  <step title="Outgoing response" date="2026-04-23T19:02:54.934" type="response" statusCode="200" statusText="OK" /><!-- duration: 70ms -->
+</step><!-- duration: 10212ms -->

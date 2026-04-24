@@ -30,9 +30,9 @@ BEGIN
 END
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'CatalogItems')
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Catalog')
 BEGIN
-    CREATE TABLE [dbo].[CatalogItems] (
+    CREATE TABLE [dbo].[Catalog] (
         [Id] INT IDENTITY(1,1) NOT NULL,
         [Name] NVARCHAR(50) NOT NULL,
         [Description] NVARCHAR(MAX) NULL,
@@ -45,15 +45,15 @@ BEGIN
         [RestockThreshold] INT NOT NULL DEFAULT 0,
         [MaxStockThreshold] INT NOT NULL DEFAULT 0,
         [OnReorder] BIT NOT NULL DEFAULT 0,
-        CONSTRAINT [PK_CatalogItems] PRIMARY KEY CLUSTERED ([Id] ASC),
-        CONSTRAINT [FK_CatalogItems_CatalogBrands] FOREIGN KEY ([CatalogBrandId]) REFERENCES [CatalogBrands]([Id]),
-        CONSTRAINT [FK_CatalogItems_CatalogTypes] FOREIGN KEY ([CatalogTypeId]) REFERENCES [CatalogTypes]([Id])
+        CONSTRAINT [PK_Catalog] PRIMARY KEY CLUSTERED ([Id] ASC),
+        CONSTRAINT [FK_Catalog_CatalogBrands] FOREIGN KEY ([CatalogBrandId]) REFERENCES [CatalogBrands]([Id]),
+        CONSTRAINT [FK_Catalog_CatalogTypes] FOREIGN KEY ([CatalogTypeId]) REFERENCES [CatalogTypes]([Id])
     );
 END
 GO
 
 -- Clear existing catalog data
-DELETE FROM [dbo].[CatalogItems];
+DELETE FROM [dbo].[Catalog];
 DELETE FROM [dbo].[CatalogBrands];
 DELETE FROM [dbo].[CatalogTypes];
 GO
@@ -88,10 +88,10 @@ SET IDENTITY_INSERT [dbo].[CatalogTypes] OFF;
 GO
 
 -- Seed Catalog Items
-SET IDENTITY_INSERT [dbo].[CatalogItems] ON;
+SET IDENTITY_INSERT [dbo].[Catalog] ON;
 GO
 
-INSERT INTO [dbo].[CatalogItems] ([Id], [Name], [Description], [Price], [PictureFileName], [PictureUri], [CatalogTypeId], [CatalogBrandId], [AvailableStock], [RestockThreshold], [MaxStockThreshold], [OnReorder]) VALUES
+INSERT INTO [dbo].[Catalog] ([Id], [Name], [Description], [Price], [PictureFileName], [PictureUri], [CatalogTypeId], [CatalogBrandId], [AvailableStock], [RestockThreshold], [MaxStockThreshold], [OnReorder]) VALUES
 (1, N'.NET Bot Black Hoodie', N'.NET Bot Black Hoodie, and more', 19.50, N'1.png', NULL, 2, 2, 100, 10, 200, 0),
 (2, N'.NET Black & White Mug', N'.NET Black & White Mug', 8.50, N'2.png', NULL, 1, 2, 89, 5, 150, 0),
 (3, N'Prism White T-Shirt', N'Prism White T-Shirt', 12.00, N'3.png', NULL, 2, 5, 56, 5, 100, 0),
@@ -106,7 +106,7 @@ INSERT INTO [dbo].[CatalogItems] ([Id], [Name], [Description], [Price], [Picture
 (12, N'Prism White TShirt', N'Prism White TShirt', 12.00, N'12.png', NULL, 2, 5, 0, 5, 100, 1);
 GO
 
-SET IDENTITY_INSERT [dbo].[CatalogItems] OFF;
+SET IDENTITY_INSERT [dbo].[Catalog] OFF;
 GO
 
 PRINT 'Catalog tables seeded successfully';

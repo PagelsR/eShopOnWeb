@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(az webapp *)",
+      "Bash(cd /tmp)",
+      "Bash(unzip -o webapp-logs.zip -d webapp-logs)",
+      "Bash(unzip -o \"C:/Users/RANDYP~1/AppData/Local/Temp/webapp-logs.zip\" -d webapp-logs)"
+    ]
+  }
+}

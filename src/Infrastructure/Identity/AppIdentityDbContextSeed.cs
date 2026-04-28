@@ -12,7 +12,7 @@ public class AppIdentityDbContextSeed
 
         if (identityDbContext.Database.IsSqlServer())
         {
-            identityDbContext.Database.Migrate();
+            await identityDbContext.Database.MigrateAsync();
         }
 
         await roleManager.CreateAsync(new IdentityRole(BlazorShared.Authorization.Constants.Roles.ADMINISTRATORS));

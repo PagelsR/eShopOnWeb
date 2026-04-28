@@ -36,7 +36,9 @@ else
 {
     // Configure SQL Server (Azure production)
     var credential = new ChainedTokenCredential(new AzureDeveloperCliCredential(), new DefaultAzureCredential());
-    builder.Configuration.AddAzureKeyVault(new Uri(builder.Configuration["AZURE_KEY_VAULT_ENDPOINT"] ?? ""), credential);
+    var keyVaultEndpoint = builder.Configuration["AZURE_KEY_VAULT_ENDPOINT"]
+        ?? throw new InvalidOperationException("AZURE_KEY_VAULT_ENDPOINT app setting is not configured.");
+    builder.Configuration.AddAzureKeyVault(new Uri(keyVaultEndpoint), credential);
     
     // Get the connection string from Key Vault using the key name from environment variable
     var connectionStringKey = builder.Configuration["SQL_CONNECTION_STRING_KEY"] ?? "SQL-CONNECTION-STRING";
@@ -122,12 +124,10 @@ builder.Services.Configure<ServiceConfig>(config =>
 // Initialize useAppConfig parameter
 var useAppConfig = false;
 Boolean.TryParse(builder.Configuration["UseAppConfig"], out useAppConfig);
-// Add Azure App Configuration middleware to the container of services.
-builder.Services.AddAzureAppConfiguration();
 
-// Load configuration from Azure App Configuration
 if (useAppConfig)
 {
+    builder.Services.AddAzureAppConfiguration();
     builder.Configuration.AddAzureAppConfiguration(options =>
     {
         var appConfigEndpoint = builder.Configuration["AppConfigEndpoint"];

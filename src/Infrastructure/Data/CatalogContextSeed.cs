@@ -18,7 +18,11 @@ public class CatalogContextSeed
         {
             if (catalogContext.Database.IsSqlServer())
             {
-                catalogContext.Database.Migrate();
+                var pending = (await catalogContext.Database.GetPendingMigrationsAsync()).ToList();
+                if (pending.Count > 0)
+                {
+                    await catalogContext.Database.MigrateAsync();
+                }
             }
 
             if (!await catalogContext.CatalogBrands.AnyAsync())
@@ -50,10 +54,8 @@ public class CatalogContextSeed
             if (retryForAvailability >= 10) throw;
 
             retryForAvailability++;
-            
             logger.LogError(ex.Message);
             await SeedAsync(catalogContext, logger, retryForAvailability);
-            throw;
         }
     }
 

@@ -35,6 +35,8 @@ param deployAppInsights bool = true
 var abbrs = loadJsonContent('./abbreviations.json')
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location))
 var tags = { 'azd-env-name': environmentName }
+var webAppName = !empty(webServiceName) ? webServiceName : '${abbrs.webSitesAppService}web-${resourceToken}'
+var webAppUrl = 'https://${webAppName}.azurewebsites.net'
 
 // Organize resources in a resource group
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
@@ -72,7 +74,7 @@ module web './core/host/appservice.bicep' = {
   name: 'web'
   scope: rg
   params: {
-    name: !empty(webServiceName) ? webServiceName : '${abbrs.webSitesAppService}web-${resourceToken}'
+    name: webAppName
     location: location
     appServicePlanId: appServicePlan.outputs.id
     keyVaultName: keyVault.outputs.name
@@ -82,6 +84,8 @@ module web './core/host/appservice.bicep' = {
     appSettings: union({
       SQL_CONNECTION_STRING_KEY: 'SQL-CONNECTION-STRING'
       AZURE_KEY_VAULT_ENDPOINT: keyVault.outputs.endpoint
+      'baseUrls__webBase': '${webAppUrl}/'
+      'baseUrls__apiBase': '${webAppUrl}/api/'
     }, deployAppInsights ? {
       APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.outputs.appInsightsConnectionString
     } : {})

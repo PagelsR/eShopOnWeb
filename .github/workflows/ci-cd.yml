@@ -20,22 +20,17 @@ env:
   AZURE_LOCATION: 'eastus2'
 
 # ============================================================================
-# REQUIRED SECRETS CONFIGURATION
-# ============================================================================
-# Configure these secrets in GitHub: Settings → Secrets and variables → Actions
+# REQUIRED SECRETS (GitHub: Settings → Secrets and variables → Actions)
 #
 # AZURE_CLIENT_ID        - Service Principal App (client) ID for OIDC auth
 # AZURE_TENANT_ID        - Azure AD Tenant ID
 # AZURE_SUBSCRIPTION_ID  - Target Azure Subscription ID
-# AZURE_RESOURCE_GROUP   - Resource group name (will be created if not exists)
+# AZURE_RESOURCE_GROUP   - Resource group name (created if not exists)
 # SQL_ADMIN_PASSWORD     - SQL Server admin password (strong password required)
-# APP_USER_PASSWORD      - Application user password for database access
 #
-# OPTIONAL SECRETS:
-# ADMIN_OBJECT_ID        - Your Azure AD Object ID for full Key Vault access
+# OPTIONAL:
+# ADMIN_OBJECT_ID        - Azure AD Object ID for Key Vault access
 #                          Get it: az ad signed-in-user show --query id -o tsv
-#
-# Setup OIDC: https://docs.github.com/actions/deployment/security-hardening-your-deployments/configuring-openid-connect-in-azure
 # ============================================================================
 
 jobs:
@@ -102,13 +97,6 @@ jobs:
         with:
           name: webapp
           path: ./publish
-          retention-days: 1
-      
-      - name: Upload database scripts artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: dbscripts
-          path: DBscripts/
           retention-days: 1
       
       - name: Build Summary
@@ -185,58 +173,10 @@ jobs:
           echo "| Location | ${{ env.AZURE_LOCATION }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Deployment | ${{ env.DEPLOYMENT_NAME }} |" >> $GITHUB_STEP_SUMMARY
 
-  seed-database:
-    name: 2️⃣ Seed SQL Database
-    runs-on: ubuntu-latest
-    needs: deploy-infrastructure
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Download database scripts
-        uses: actions/download-artifact@v4
-        with:
-          name: dbscripts
-          path: ./DBscripts
-      
-      - name: Azure Login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      
-      - name: Install sqlcmd
-        run: |
-          curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-          curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
-          sudo apt-get update
-          sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
-          echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc
-          source ~/.bashrc
-      
-      - name: Seed eShopOnWeb Database
-        run: |
-          echo "Seeding eShopOnWeb Database..."
-          echo "Server: ${{ needs.deploy-infrastructure.outputs.sqlServerFqdn }}"
-          echo "Database: ${{ needs.deploy-infrastructure.outputs.databaseName }}"
-          
-          /opt/mssql-tools18/bin/sqlcmd \
-            -S ${{ needs.deploy-infrastructure.outputs.sqlServerFqdn }} \
-            -d ${{ needs.deploy-infrastructure.outputs.databaseName }} \
-            -U sqlAdmin \
-            -P '${{ secrets.SQL_ADMIN_PASSWORD }}' \
-            -C \
-            -i ./DBscripts/eShopOnWeb.sql
-          
-          echo "✅ Database seeded successfully"
-
   deploy-app:
-    name: 3️⃣ Deploy Web Application
+    name: 2️⃣ Deploy Web Application
     runs-on: ubuntu-latest
-    needs: [deploy-infrastructure, seed-database]
+    needs: [deploy-infrastructure]
     if: github.ref == 'refs/heads/main'
     
     steps:
@@ -305,7 +245,7 @@ jobs:
           echo "**Note:** App may need additional time to start" >> $GITHUB_STEP_SUMMARY
 
   post-deployment-verification:
-    name: 4️⃣ Post-Deployment Verification
+    name: 3️⃣ Post-Deployment Verification
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     needs: [deploy-infrastructure, deploy-app]
@@ -353,19 +293,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Component | Status | Details |" >> $GITHUB_STEP_SUMMARY
           echo "|-----------|--------|---------|" >> $GITHUB_STEP_SUMMARY
-          echo "| ✅ Build & Test | Passed | 44 unit tests passed |" >> $GITHUB_STEP_SUMMARY
-          echo "| ✅ Infrastructure | Deployed | Resource group created |" >> $GITHUB_STEP_SUMMARY
-          echo "| ✅ SQL Databases | Seeded | Catalog & Identity DBs ready |" >> $GITHUB_STEP_SUMMARY
-          echo "| ✅ Web Application | Running | App Service deployed |" >> $GITHUB_STEP_SUMMARY
+          echo "| ✅ Build & Test | Passed | Unit tests passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| ✅ Infrastructure | Deployed | Resource group, SQL, Key Vault |" >> $GITHUB_STEP_SUMMARY
+          echo "| ✅ Web Application | Running | EF migrations + seed on startup |" >> $GITHUB_STEP_SUMMARY
           echo "| ✅ Verification | Complete | All resources healthy |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Access Your Application" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Application URL:** https://${{ needs.deploy-infrastructure.outputs.webAppName }}.azurewebsites.net" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "1. Test the application at the URL above" >> $GITHUB_STEP_SUMMARY
-          echo "2. Monitor Application Insights for performance" >> $GITHUB_STEP_SUMMARY
-          echo "3. Review SQL Database connections" >> $GITHUB_STEP_SUMMARY
-          echo "4. Verify Key Vault secrets are configured" >> $GITHUB_STEP_SUMMARY

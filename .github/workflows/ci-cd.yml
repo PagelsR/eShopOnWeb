@@ -92,11 +92,14 @@ jobs:
             --no-build \
             --output ./publish
       
+      - name: Zip webapp
+        run: zip -r webapp.zip ./publish
+
       - name: Upload webapp artifact
         uses: actions/upload-artifact@v4
         with:
           name: webapp
-          path: ./publish
+          path: webapp.zip
           retention-days: 1
       
       - name: Build Summary
@@ -185,19 +188,19 @@ jobs:
         with:
           name: webapp
           path: ./webapp
-      
+
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      
+
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ needs.deploy-infrastructure.outputs.webAppName }}
-          package: ./webapp
+          package: ./webapp/webapp.zip
       
       - name: Get Web App URL
         id: get-url

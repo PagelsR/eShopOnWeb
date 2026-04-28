@@ -1,0 +1,514 @@
+name: Build and Deploy to Azure
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  RESOURCE_GROUP: 'rg-GinosGelato'
+  LOCATION: 'eastus2'
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  # ============================================================================
+  # REQUIRED SECRETS CONFIGURATION
+  # ============================================================================
+  # TODO: Add AZURE_CREDENTIALS secret here for service principal authentication
+  #       Format: JSON object with clientId, clientSecret, subscriptionId, tenantId
+  #       Create via: az ad sp create-for-rbac --name "GinosGelato-GitHub-Actions" 
+  #                   --role contributor --scopes /subscriptions/{subscription-id} --sdk-auth
+  #
+  # TODO: Add AZURE_SUBSCRIPTION_ID secret here
+  #       Your Azure subscription ID (GUID format)
+  # ============================================================================
+
+  build-and-test:
+    name: 🔨 Build & Test (PR Validation)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore Backend Dependencies
+        run: |
+          echo "Restoring NuGet packages..."
+          dotnet restore
+        working-directory: ./ginos-gelato/server
+      
+      - name: Build Backend
+        run: |
+          echo "Building solution in Release mode..."
+          dotnet build --configuration Release --no-restore
+        working-directory: ./ginos-gelato/server
+      
+      - name: Run Backend Tests
+        run: |
+          echo "Running unit tests..."
+          dotnet test --configuration Release --no-build --verbosity normal
+        working-directory: ./ginos-gelato/server
+        continue-on-error: true
+      
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: './ginos-gelato/client/package-lock.json'
+      
+      - name: Install Frontend Dependencies
+        run: |
+          echo "Installing npm packages..."
+          npm ci
+        working-directory: ./ginos-gelato/client
+      
+      - name: Build Frontend
+        run: |
+          echo "Building frontend application..."
+          npm run build
+        working-directory: ./ginos-gelato/client
+      
+      - name: Build Summary
+        run: |
+          echo "### ✅ Build & Test Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "**PR Validation Passed** - Code builds successfully and tests pass" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🚀 Merge to main to deploy to Azure" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Build validated** - Proceeding to Azure deployment" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  provision-infrastructure:
+    name: 1️⃣ Provision Infrastructure (Bicep/IaC)
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    needs: build-and-test
+    outputs:
+      resourceGroupName: ${{ env.RESOURCE_GROUP }}
+      appServiceName: ${{ steps.deploy.outputs.appServiceName }}
+      appServiceUrl: ${{ steps.deploy.outputs.appServiceUrl }}
+      staticWebAppName: ${{ steps.deploy.outputs.staticWebAppName }}
+      loadTestingName: ${{ steps.deploy.outputs.loadTestingName }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Deploy Bicep Infrastructure
+        id: deploy
+        uses: azure/arm-deploy@v2
+        with:
+          scope: resourcegroup
+          subscriptionId: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resourceGroupName: ${{ env.RESOURCE_GROUP }}
+          template: ./iac/main.bicep
+          parameters: >
+            location=${{ env.LOCATION }}
+          deploymentName: 'ginosgelato-infra-${{ github.run_number }}'
+          failOnStdErr: false
+      
+      - name: Infrastructure Deployment Summary
+        run: |
+          echo "### Infrastructure Deployed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Resource Group | ${{ env.RESOURCE_GROUP }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| App Service | ${{ steps.deploy.outputs.appServiceName }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| App Service URL | ${{ steps.deploy.outputs.appServiceUrl }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Static Web App | ${{ steps.deploy.outputs.staticWebAppName }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Location | ${{ env.LOCATION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Load Testing | ${{ steps.deploy.outputs.loadTestingName }} |" >> $GITHUB_STEP_SUMMARY
+
+  build-and-deploy-backend:
+    name: 2️⃣ Build, Test & Deploy Backend API
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    needs: [provision-infrastructure]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      
+      - name: Restore dependencies
+        run: |
+          echo "Restoring NuGet packages..."
+          dotnet restore
+        working-directory: ./ginos-gelato/server
+      
+      - name: Build
+        run: |
+          echo "Building solution in Release mode..."
+          dotnet build --configuration Release --no-restore
+        working-directory: ./ginos-gelato/server
+      
+      - name: Run Tests
+        run: |
+          echo "Running unit tests..."
+          dotnet test --configuration Release --no-build --verbosity normal
+        working-directory: ./ginos-gelato/server
+        continue-on-error: true
+      
+      - name: Publish
+        run: |
+          echo "Publishing application..."
+          dotnet publish --configuration Release --no-build --output ./publish
+        working-directory: ./ginos-gelato/server
+      
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Deploy to Azure App Service
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ needs.provision-infrastructure.outputs.appServiceName }}
+          package: ./ginos-gelato/server/publish
+      
+      - name: Verify Deployment
+        run: |
+          echo "Verifying API deployment..."
+          API_URL="${{ needs.provision-infrastructure.outputs.appServiceUrl }}"
+          echo "Testing endpoint: ${API_URL}/api/flavors"
+          
+          # Wait for app to be ready
+          for i in {1..12}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/api/flavors" || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ API is responding (HTTP $HTTP_CODE)"
+              curl -s "${API_URL}/api/flavors"
+              break
+            fi
+            echo "⏳ Waiting for API to be ready (attempt $i/12, HTTP $HTTP_CODE)..."
+            sleep 15
+          done
+          
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ API failed to respond after 12 attempts"
+            echo "Final HTTP Code: $HTTP_CODE"
+            exit 1
+          fi
+      
+      - name: Backend Deployment Summary
+        run: |
+          echo "### Backend API Deployed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| API URL | ${{ needs.provision-infrastructure.outputs.appServiceUrl }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Flavors API | ${{ needs.provision-infrastructure.outputs.appServiceUrl }}/api/flavors |" >> $GITHUB_STEP_SUMMARY
+          echo "| .NET Version | ${{ env.DOTNET_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Configuration | Release |" >> $GITHUB_STEP_SUMMARY
+
+  build-and-deploy-frontend:
+    name: 3️⃣ Build & Deploy Frontend (Static Web App)
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [provision-infrastructure, build-and-deploy-backend]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: './ginos-gelato/client/package-lock.json'
+      
+      - name: Install dependencies
+        run: |
+          echo "Installing npm packages..."
+          npm ci
+        working-directory: ./ginos-gelato/client
+      
+      - name: Configure API URL for production
+        run: |
+          API_URL="${{ needs.provision-infrastructure.outputs.appServiceUrl }}"
+          APPINSIGHTS_CONNECTION_STRING="${{ needs.provision-infrastructure.outputs.appInsightsConnectionString }}"
+          echo "Configuring API URL: $API_URL"
+          echo "Configuring Application Insights..."
+          echo "VITE_API_URL=$API_URL" > .env.production
+          echo "VITE_APPINSIGHTS_CONNECTION_STRING=$APPINSIGHTS_CONNECTION_STRING" >> .env.production
+          cat .env.production
+        working-directory: ./ginos-gelato/client
+      
+      - name: Build Frontend
+        run: |
+          echo "Building frontend application..."
+          npm run build
+        working-directory: ./ginos-gelato/client
+      
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Get Static Web App Deployment Token
+        id: get-swa-token
+        run: |
+          echo "Retrieving Static Web App deployment token..."
+          SWA_TOKEN=$(az staticwebapp secrets list \
+            --name ${{ needs.provision-infrastructure.outputs.staticWebAppName }} \
+            --resource-group ${{ needs.provision-infrastructure.outputs.resourceGroupName }} \
+            --query properties.apiKey -o tsv)
+          
+          echo "::add-mask::$SWA_TOKEN"
+          echo "SWA_TOKEN=$SWA_TOKEN" >> $GITHUB_OUTPUT
+          echo "Successfully retrieved deployment token"
+      
+      - name: Deploy to Azure Static Web App
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ steps.get-swa-token.outputs.SWA_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: 'upload'
+          app_location: './ginos-gelato/client/dist'
+          skip_app_build: true
+      
+      - name: Frontend Deployment Summary
+        run: |
+          echo "### Frontend Deployed Successfully" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Static Web App | ${{ needs.provision-infrastructure.outputs.staticWebAppName }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Node Version | ${{ env.NODE_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Tool | Vite + React + TypeScript |" >> $GITHUB_STEP_SUMMARY
+
+  run-playwright-tests:
+    name: 4️⃣ Run Playwright Tests
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [build-and-deploy-frontend]
+    env:
+      CI: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: './package-lock.json'
+
+      - name: Install dependencies
+        run: |
+          echo "Installing npm packages..."
+          npm ci
+
+      - name: Install Playwright Browsers
+        run: |
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright Tests
+        run: |
+          npx playwright test
+        continue-on-error: true
+
+      - name: Checkout gh-pages branch for history
+        if: always()
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          path: gh-pages-content
+          
+      - name: Extract Test Metrics and Update History
+        if: always()
+        run: |
+          # Create reports directory for this run
+          RUN_ID="${{ github.run_number }}"
+          DATE=$(date +%Y-%m-%d)
+          REPORT_DIR="reports/${DATE}-run-${RUN_ID}"
+          
+          echo "Creating report directory: $REPORT_DIR"
+          mkdir -p deployment-content/$REPORT_DIR
+          
+          # Copy HTML report to dated folder
+          if [ -d "playwright-report" ]; then
+            cp -r playwright-report/* deployment-content/$REPORT_DIR/
+          fi
+          
+          # Extract metrics from JSON
+          if [ -f "test-results.json" ]; then
+            # Copy existing history if it exists
+            if [ -f "gh-pages-content/test-history.json" ]; then
+              cp gh-pages-content/test-history.json ./test-history.json
+            else
+              echo "[]" > test-history.json
+            fi
+            
+            # Extract and append metrics
+            REPORT_URL="https://pagelsr.github.io/GinosGelato/reports/${DATE}-run-${RUN_ID}"
+            node .github/scripts/extract-test-metrics.js test-results.json test-history.json $RUN_ID "$REPORT_URL"
+            
+            # Copy updated history to deployment
+            cp test-history.json deployment-content/
+            cp current-run-summary.json deployment-content/
+          fi
+          
+          # Copy dashboard as index.html
+          cp .github/pages/dashboard.html deployment-content/index.html
+          
+          # Copy existing reports if any
+          if [ -d "gh-pages-content/reports" ]; then
+            mkdir -p deployment-content/reports
+            cp -r gh-pages-content/reports/* deployment-content/reports/ || true
+          fi
+          
+          echo "Deployment structure ready"
+          ls -la deployment-content/
+
+      - name: Upload Playwright Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+      - name: Publish Test Dashboard to GitHub Pages
+        if: always()
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          personal_token: ${{ secrets.PERSONAL_ACCESSTOKEN_PAGES }}
+          publish_branch: gh-pages
+          publish_dir: deployment-content
+          keep_files: false
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy test report for run #${{ github.run_number }}'
+
+  run-load-tests:
+    name: 5️⃣ Run Azure Load Tests
+    if: false # TODO: Re-enable when Azure Load Testing resource is provisioned
+    runs-on: ubuntu-latest
+    needs: [provision-infrastructure, run-playwright-tests]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Prepare Load Test Variables
+        id: prep
+        run: |
+          APP_URL="${{ needs.provision-infrastructure.outputs.appServiceUrl }}"
+          # Strip https:// - JMeter needs hostname only
+          WEBAPP_HOST="${APP_URL#https://}"
+          echo "webapp_host=${WEBAPP_HOST}" >> $GITHUB_OUTPUT
+          echo "Target host: ${WEBAPP_HOST}"
+
+      - name: Run Azure Load Tests
+        uses: azure/load-testing@v1
+        continue-on-error: true
+        with:
+          loadTestConfigFile: './load-tests/API_Testing.yaml'
+          loadTestResource: ${{ needs.provision-infrastructure.outputs.loadTestingName }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          env: |
+            [
+              {"name": "webapp", "value": "${{ steps.prep.outputs.webapp_host }}"}
+            ]
+
+      - name: Upload Load Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results
+          path: ${{ github.workspace }}/loadTest
+          retention-days: 30
+
+      - name: Load Test Summary
+        if: always()
+        run: |
+          echo "### Azure Load Test Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Load Test Resource | ${{ needs.provision-infrastructure.outputs.loadTestingName }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Target API | ${{ needs.provision-infrastructure.outputs.appServiceUrl }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Endpoints Tested | GET /api/Flavors, GET /api/Toppings, GET /api/Orders, POST /api/Orders |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failure Criteria | avg response > 5s OR error rate > 20% |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📊 Download the **load-test-results** artifact for full JMeter report" >> $GITHUB_STEP_SUMMARY
+
+  post-deployment-verification:
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    name: 6️⃣ Post-Deployment Verification
+    runs-on: ubuntu-latest
+    needs: [provision-infrastructure, build-and-deploy-backend, build-and-deploy-frontend, run-playwright-tests]
+    
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Verify Backend Health
+        run: |
+          echo "Checking Backend API health..."
+          API_URL="${{ needs.provision-infrastructure.outputs.appServiceUrl }}"
+          
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/api/flavors")
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Backend API is healthy (HTTP $HTTP_CODE)"
+          else
+            echo "⚠️ Backend API returned HTTP $HTTP_CODE"
+          fi
+      
+      - name: Final Deployment Report
+        run: |
+          echo "## Gino's Gelato Deployment Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**1. Infrastructure Provisioned** - All Azure resources created in `${{ env.LOCATION }}`" >> $GITHUB_STEP_SUMMARY
+          echo "**2. Backend API Deployed** - .NET 8 API running on App Service" >> $GITHUB_STEP_SUMMARY
+          echo "**3. Frontend Deployed** - React app hosted on Static Web App" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Access Points" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Backend API**: ${{ needs.provision-infrastructure.outputs.appServiceUrl }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Flavors API**: ${{ needs.provision-infrastructure.outputs.appServiceUrl }}/api/flavors" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Security" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- HTTPS enforced for App Service" >> $GITHUB_STEP_SUMMARY
+          echo "- Static Web App secured with deployment token" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Test the application end-to-end" >> $GITHUB_STEP_SUMMARY
+          echo "2. Monitor App Service logs for any issues" >> $GITHUB_STEP_SUMMARY

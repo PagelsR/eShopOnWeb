@@ -176,12 +176,45 @@ jobs:
           echo "| Location | ${{ env.AZURE_LOCATION }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Deployment | ${{ env.DEPLOYMENT_NAME }} |" >> $GITHUB_STEP_SUMMARY
 
-  deploy-app:
-    name: 2️⃣ Deploy Web Application
+  seed-database:
+    name: 2️⃣ Initialize Database
     runs-on: ubuntu-latest
     needs: [deploy-infrastructure]
     if: github.ref == 'refs/heads/main'
-    
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Initialize database schema and seed catalog
+        uses: azure/sql-action@v2.3
+        with:
+          connection-string: "Server=tcp:${{ needs.deploy-infrastructure.outputs.sqlServerFqdn }},1433;Initial Catalog=${{ needs.deploy-infrastructure.outputs.databaseName }};Persist Security Info=False;User ID=sqlAdmin;Password=${{ secrets.SQL_ADMIN_PASSWORD }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+          path: "./infra/sql/InitializeDatabase.sql"
+
+      - name: Database Initialization Summary
+        run: |
+          echo "### ✅ Database Initialized" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Table | Records |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| CatalogBrands | 5 |" >> $GITHUB_STEP_SUMMARY
+          echo "| CatalogTypes | 4 |" >> $GITHUB_STEP_SUMMARY
+          echo "| Catalog (items) | 12 |" >> $GITHUB_STEP_SUMMARY
+
+  deploy-app:
+    name: 3️⃣ Deploy Web Application
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure, seed-database]
+    if: github.ref == 'refs/heads/main'
+
     steps:
       - name: Download webapp artifact
         uses: actions/download-artifact@v4
@@ -201,31 +234,31 @@ jobs:
         with:
           app-name: ${{ needs.deploy-infrastructure.outputs.webAppName }}
           package: ./webapp/webapp.zip
-      
+
       - name: Get Web App URL
         id: get-url
         run: |
           WEB_APP_URL="https://${{ needs.deploy-infrastructure.outputs.webAppName }}.azurewebsites.net"
           echo "WEB_APP_URL=$WEB_APP_URL" >> $GITHUB_ENV
           echo "WEB_APP_URL=$WEB_APP_URL" >> $GITHUB_OUTPUT
-      
+
       - name: Verify deployment
         run: |
           echo "Verifying web application deployment..."
           API_URL="${{ env.WEB_APP_URL }}"
-          
+
           # Give the app time to restart
           echo "Waiting 60 seconds for app to initialize..."
           sleep 60
-          
+
           # Check health endpoint with retry (up to 3 minutes)
           echo "Checking application health: ${API_URL}"
           MAX_ATTEMPTS=18
           ATTEMPT=1
-          
+
           while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}" 2>/dev/null || echo "000")
-            
+
             if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ]; then
               echo "✅ Application is responding (HTTP $HTTP_CODE)"
               echo "### 🎉 Deployment Complete!" >> $GITHUB_STEP_SUMMARY
@@ -234,12 +267,12 @@ jobs:
               echo "**Status:** ✅ Healthy (HTTP $HTTP_CODE)" >> $GITHUB_STEP_SUMMARY
               exit 0
             fi
-            
+
             echo "Attempt $ATTEMPT/$MAX_ATTEMPTS: HTTP $HTTP_CODE - Waiting 10s..."
             sleep 10
             ATTEMPT=$((ATTEMPT + 1))
           done
-          
+
           # App isn't responding yet, but deployment succeeded
           echo "⚠️ Application deployed but not responding yet - may need more startup time"
           echo "### ✅ Deployment Package Uploaded" >> $GITHUB_STEP_SUMMARY
@@ -247,44 +280,11 @@ jobs:
           echo "**Application URL:** ${API_URL}" >> $GITHUB_STEP_SUMMARY
           echo "**Note:** App may need additional time to start" >> $GITHUB_STEP_SUMMARY
 
-  seed-database:
-    name: 3️⃣ Seed Database
-    runs-on: ubuntu-latest
-    needs: [deploy-infrastructure, deploy-app]
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Azure Login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Seed catalog data
-        uses: azure/sql-action@v2.3
-        with:
-          connection-string: "Server=tcp:${{ needs.deploy-infrastructure.outputs.sqlServerFqdn }},1433;Initial Catalog=${{ needs.deploy-infrastructure.outputs.databaseName }};Persist Security Info=False;User ID=sqlAdmin;Password=${{ secrets.SQL_ADMIN_PASSWORD }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
-          path: "./infra/sql/SeedCatalogData.sql"
-
-      - name: Database Seed Summary
-        run: |
-          echo "### ✅ Database Seeded" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Table | Records |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|---------|" >> $GITHUB_STEP_SUMMARY
-          echo "| CatalogBrands | 5 |" >> $GITHUB_STEP_SUMMARY
-          echo "| CatalogTypes | 4 |" >> $GITHUB_STEP_SUMMARY
-          echo "| Catalog (items) | 12 |" >> $GITHUB_STEP_SUMMARY
-
   post-deployment-verification:
     name: 4️⃣ Post-Deployment Verification
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    needs: [deploy-infrastructure, deploy-app, seed-database]
+    needs: [deploy-infrastructure, seed-database, deploy-app]
     
     steps:
       - name: Azure Login (OIDC)

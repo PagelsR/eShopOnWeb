@@ -160,7 +160,7 @@ if (useAppConfig)
 
 app.Logger.LogInformation("App created...");
 
-app.Logger.LogInformation("Seeding Database...");
+app.Logger.LogInformation("Applying migrations and seeding database...");
 
 using (var scope = app.Services.CreateScope())
 {
@@ -168,6 +168,7 @@ using (var scope = app.Services.CreateScope())
     try
     {
         var catalogContext = scopedProvider.GetRequiredService<CatalogContext>();
+        await catalogContext.Database.MigrateAsync();
         await CatalogContextSeed.SeedAsync(catalogContext, app.Logger);
 
         var userManager = scopedProvider.GetRequiredService<UserManager<ApplicationUser>>();

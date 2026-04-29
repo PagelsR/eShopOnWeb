@@ -17,15 +17,6 @@ public class CatalogContextSeed
         var retryForAvailability = retry;
         try
         {
-            if (catalogContext.Database.IsSqlServer())
-            {
-                var pending = (await catalogContext.Database.GetPendingMigrationsAsync()).ToList();
-                if (pending.Count > 0)
-                {
-                    await catalogContext.Database.MigrateAsync();
-                }
-            }
-
             if (!await catalogContext.CatalogBrands.AnyAsync())
             {
                 await catalogContext.CatalogBrands.AddRangeAsync(

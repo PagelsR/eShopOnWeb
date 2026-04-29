@@ -1,8 +1,7 @@
 -- eShopOnWeb Catalog Seed Data
 -- Runs on every CI/CD deployment to ensure consistent catalog state.
--- Tables targeted: CatalogBrands, CatalogTypes, Catalog (items)
--- Safe to re-run: wraps everything in a transaction and rolls back on error.
--- No FK constraints point at Catalog from Orders or Baskets, so DELETE is safe.
+-- Also stamps __EFMigrationsHistory so EF never tries to re-run already-applied
+-- migrations on the next app startup (prevents "object already exists" SqlException).
 
 BEGIN TRANSACTION;
 
@@ -29,7 +28,6 @@ BEGIN TRY
         (4, N'USB Memory Stick');
 
     -- ── Items ───────────────────────────────────────────────────────────────
-    -- CatalogTypeId / CatalogBrandId match the IDs inserted above.
     -- PictureUri uses the placeholder prefix; UriComposer replaces it at runtime
     -- with CatalogBaseUrl (empty string in Azure → resolves to /images/products/N.png).
     INSERT INTO [dbo].[Catalog]
@@ -48,8 +46,20 @@ BEGIN TRY
         (11, 3, 2, N'Cup<T> Sheet',                 N'Cup<T> Sheet',                  8.50, N'http://catalogbaseurltobereplaced/images/products/11.png'),
         (12, 2, 5, N'Prism White TShirt',            N'Prism White TShirt',           12.00, N'http://catalogbaseurltobereplaced/images/products/12.png');
 
+    -- ── EF Migration History ─────────────────────────────────────────────────
+    -- Ensures EF Core does not attempt to re-run already-applied migrations on
+    -- the next app startup, which causes "object already exists" SqlExceptions.
+    IF NOT EXISTS (SELECT 1 FROM [dbo].[__EFMigrationsHistory] WHERE [MigrationId] = '20201202111507_InitialModel')
+        INSERT INTO [dbo].[__EFMigrationsHistory] ([MigrationId], [ProductVersion]) VALUES ('20201202111507_InitialModel', '8.0.19');
+
+    IF NOT EXISTS (SELECT 1 FROM [dbo].[__EFMigrationsHistory] WHERE [MigrationId] = '20211026175614_FixBuyerId')
+        INSERT INTO [dbo].[__EFMigrationsHistory] ([MigrationId], [ProductVersion]) VALUES ('20211026175614_FixBuyerId', '8.0.19');
+
+    IF NOT EXISTS (SELECT 1 FROM [dbo].[__EFMigrationsHistory] WHERE [MigrationId] = '20211231093753_FixShipToAddress')
+        INSERT INTO [dbo].[__EFMigrationsHistory] ([MigrationId], [ProductVersion]) VALUES ('20211231093753_FixShipToAddress', '8.0.19');
+
     COMMIT TRANSACTION;
-    PRINT 'Catalog seed completed: 5 brands, 4 types, 12 items.';
+    PRINT 'Catalog seed completed: 5 brands, 4 types, 12 items. Migration history stamped.';
 
 END TRY
 BEGIN CATCH

@@ -7,7 +7,8 @@
       "Bash(unzip -o \"C:/Users/RANDYP~1/AppData/Local/Temp/webapp-logs.zip\" -d webapp-logs)",
       "Bash(gh run *)",
       "Bash(gh api *)",
-      "Bash(python3 -c \"import json,sys; jobs=json.load\\(sys.stdin\\)['jobs']; [print\\(j['name'], j['conclusion'], [\\(s['name'],s['conclusion']\\) for s in j['steps']]\\) for j in jobs]\")"
+      "Bash(python3 -c \"import json,sys; jobs=json.load\\(sys.stdin\\)['jobs']; [print\\(j['name'], j['conclusion'], [\\(s['name'],s['conclusion']\\) for s in j['steps']]\\) for j in jobs]\")",
+      "Bash(dotnet build *)"
     ]
   }
 }

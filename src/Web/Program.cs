@@ -1,5 +1,4 @@
 using System.Net.Mime;
-using Ardalis.ListStartupServices;
 using Azure.Identity;
 using BlazorAdmin;
 using BlazorAdmin.Services;
@@ -17,49 +16,38 @@ using Microsoft.eShopWeb.Infrastructure.Identity;
 using Microsoft.eShopWeb.Web;
 using Microsoft.eShopWeb.Web.Configuration;
 using Microsoft.eShopWeb.Web.HealthChecks;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.eShopWeb.Web.Pages;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.FeatureManagement;
-using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddConsole();
 
 builder.Configuration.AddEnvironmentVariables();
 
-if (builder.Environment.IsDevelopment())
+// Configure SQL Server via Azure Key Vault
+var credential = new ChainedTokenCredential(new AzureDeveloperCliCredential(), new DefaultAzureCredential());
+var keyVaultEndpoint = builder.Configuration["AZURE_KEY_VAULT_ENDPOINT"]
+    ?? throw new InvalidOperationException("AZURE_KEY_VAULT_ENDPOINT app setting is not configured.");
+builder.Configuration.AddAzureKeyVault(new Uri(keyVaultEndpoint), credential);
+
+var connectionStringKey = builder.Configuration["SQL_CONNECTION_STRING_KEY"] ?? "SQL-CONNECTION-STRING";
+var connectionString = builder.Configuration[connectionStringKey];
+
+if (string.IsNullOrEmpty(connectionString))
 {
-    // Configure SQL Server (local)
-    Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+    throw new InvalidOperationException($"Connection string '{connectionStringKey}' not found in Key Vault.");
 }
-else
+
+builder.Services.AddDbContext<CatalogContext>(c =>
 {
-    // Configure SQL Server (Azure production)
-    var credential = new ChainedTokenCredential(new AzureDeveloperCliCredential(), new DefaultAzureCredential());
-    var keyVaultEndpoint = builder.Configuration["AZURE_KEY_VAULT_ENDPOINT"]
-        ?? throw new InvalidOperationException("AZURE_KEY_VAULT_ENDPOINT app setting is not configured.");
-    builder.Configuration.AddAzureKeyVault(new Uri(keyVaultEndpoint), credential);
-    
-    // Get the connection string from Key Vault using the key name from environment variable
-    var connectionStringKey = builder.Configuration["SQL_CONNECTION_STRING_KEY"] ?? "SQL-CONNECTION-STRING";
-    var connectionString = builder.Configuration[connectionStringKey];
-    
-    if (string.IsNullOrEmpty(connectionString))
-    {
-        throw new InvalidOperationException($"Connection string '{connectionStringKey}' not found in Key Vault.");
-    }
-    
-    // Both contexts use the same database connection
-    builder.Services.AddDbContext<CatalogContext>(c =>
-    {
-        c.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure());
-    });
-    
-    builder.Services.AddDbContext<AppIdentityDbContext>(options =>
-    {
-        options.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure());
-    });
-}
+    c.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure());
+});
+
+builder.Services.AddDbContext<AppIdentityDbContext>(options =>
+{
+    options.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure());
+});
 
 builder.Services.AddCookieSettings();
 
@@ -80,20 +68,15 @@ builder.Services.AddScoped<ITokenClaimsService, IdentityTokenClaimService>();
 builder.Services.AddCoreServices(builder.Configuration);
 builder.Services.AddWebServices(builder.Configuration);
 
-// Add memory cache services
 builder.Services.AddMemoryCache();
 builder.Services.AddRouting(options =>
 {
-    // Replace the type and the name used to refer to it with your own
-    // IOutboundParameterTransformer implementation
     options.ConstraintMap["slugify"] = typeof(SlugifyParameterTransformer);
 });
 
 builder.Services.AddMvc(options =>
 {
-    options.Conventions.Add(new RouteTokenTransformerConvention(
-             new SlugifyParameterTransformer()));
-
+    options.Conventions.Add(new RouteTokenTransformerConvention(new SlugifyParameterTransformer()));
 });
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages(options =>
@@ -111,15 +94,11 @@ if (!string.IsNullOrEmpty(appInsightsConnectionString))
         options.ConnectionString = appInsightsConnectionString;
     });
 }
+
 builder.Services
     .AddHealthChecks()
     .AddCheck<ApiHealthCheck>("api_health_check", tags: new[] { "apiHealthCheck" })
     .AddCheck<HomePageHealthCheck>("home_page_health_check", tags: new[] { "homePageHealthCheck" });
-builder.Services.Configure<ServiceConfig>(config =>
-{
-    config.Services = new List<ServiceDescriptor>(builder.Services);
-    config.Path = "/allservices";
-});
 
 // Initialize useAppConfig parameter
 var useAppConfig = false;
@@ -132,22 +111,20 @@ if (useAppConfig)
     {
         var appConfigEndpoint = builder.Configuration["AppConfigEndpoint"];
 
-        if (String.IsNullOrEmpty(appConfigEndpoint))
+        if (string.IsNullOrEmpty(appConfigEndpoint))
         {
             throw new Exception("AppConfigEndpoint is not set in the configuration. Please set AppConfigEndpoint in the configuration.");
         }
 
         options.Connect(new Uri(appConfigEndpoint), new DefaultAzureCredential())
-        .ConfigureRefresh(refresh =>
-        {
-            // Default cache expiration is 30 seconds
-            refresh.Register("eShopWeb:Settings:NoResultsMessage").SetRefreshInterval(TimeSpan.FromSeconds(10));
-        })
-        .UseFeatureFlags(featureFlagOptions =>
-        {
-            // Default cache expiration is 30 seconds
-            featureFlagOptions.SetRefreshInterval(TimeSpan.FromSeconds(10));
-        });
+            .ConfigureRefresh(refresh =>
+            {
+                refresh.Register("eShopWeb:Settings:NoResultsMessage").SetRefreshInterval(TimeSpan.FromSeconds(10));
+            })
+            .UseFeatureFlags(featureFlagOptions =>
+            {
+                featureFlagOptions.SetRefreshInterval(TimeSpan.FromSeconds(10));
+            });
     });
 }
 
@@ -155,34 +132,29 @@ if (useAppConfig)
 builder.Services.AddFeatureManagement();
 
 // Bind configuration "eShopWeb:Settings" section to the Settings object
-// This must be AFTER Azure App Configuration is added so it picks up remote values
+// Must be AFTER Azure App Configuration is added so it picks up remote values
 builder.Services.Configure<SettingsViewModel>(builder.Configuration.GetSection("eShopWeb:Settings"));
 
-// blazor configuration
+// Blazor configuration
 var configSection = builder.Configuration.GetRequiredSection(BaseUrlConfiguration.CONFIG_NAME);
 builder.Services.Configure<BaseUrlConfiguration>(configSection);
 var baseUrlConfig = configSection.Get<BaseUrlConfiguration>();
 
-// Blazor Admin Required Services for Prerendering
 builder.Services.AddScoped<HttpClient>(s => new HttpClient
 {
     BaseAddress = new Uri(baseUrlConfig!.WebBase)
 });
 
-// add blazor services
 builder.Services.AddBlazoredLocalStorage();
 builder.Services.AddServerSideBlazor();
 builder.Services.AddScoped<ToastService>();
 builder.Services.AddScoped<HttpService>();
 builder.Services.AddBlazorServices();
 
-builder.Services.AddDatabaseDeveloperPageExceptionFilter();
-
 var app = builder.Build();
 
 if (useAppConfig)
 {
-    // Use Azure App Configuration middleware for dynamic configuration refresh.
     app.UseAzureAppConfiguration();
 }
 
@@ -237,20 +209,9 @@ app.UseHealthChecks("/health",
             await context.Response.WriteAsync(result);
         }
     });
-if (app.Environment.IsDevelopment())
-{
-    app.Logger.LogInformation("Adding Development middleware...");
-    app.UseDeveloperExceptionPage();
-    app.UseShowAllServicesMiddleware();
-    app.UseMigrationsEndPoint();
-    app.UseWebAssemblyDebugging();
-}
-else
-{
-    app.Logger.LogInformation("Adding non-Development middleware...");
-    app.UseExceptionHandler("/Error");
-    app.UseHsts();
-}
+
+app.UseExceptionHandler("/Error");
+app.UseHsts();
 
 app.UseHttpsRedirection();
 app.UseBlazorFrameworkFiles();
@@ -261,12 +222,10 @@ app.UseCookiePolicy();
 app.UseAuthentication();
 app.UseAuthorization();
 
-
 app.MapControllerRoute("default", "{controller:slugify=Home}/{action:slugify=Index}/{id?}");
 app.MapRazorPages();
 app.MapHealthChecks("home_page_health_check", new HealthCheckOptions { Predicate = check => check.Tags.Contains("homePageHealthCheck") });
 app.MapHealthChecks("api_health_check", new HealthCheckOptions { Predicate = check => check.Tags.Contains("apiHealthCheck") });
-//endpoints.MapBlazorHub("/admin");
 app.MapFallbackToFile("index.html");
 
 app.Logger.LogInformation("LAUNCHING");

@@ -5,6 +5,7 @@ using BlazorShared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.eShopWeb;
 using Microsoft.eShopWeb.ApplicationCore.Constants;
 using Microsoft.eShopWeb.ApplicationCore.Interfaces;
@@ -31,7 +32,22 @@ builder.Services.AddEndpoints();
 builder.Configuration.AddConfigurationFile("appsettings.test.json");
 builder.Logging.AddConsole();
 
-Microsoft.eShopWeb.Infrastructure.Dependencies.ConfigureServices(builder.Configuration, builder.Services);
+bool useOnlyInMemoryDatabase = false;
+if (builder.Configuration["UseOnlyInMemoryDatabase"] != null)
+    useOnlyInMemoryDatabase = bool.Parse(builder.Configuration["UseOnlyInMemoryDatabase"]!);
+
+if (useOnlyInMemoryDatabase)
+{
+    builder.Services.AddDbContext<CatalogContext>(c => c.UseInMemoryDatabase("Catalog"));
+    builder.Services.AddDbContext<AppIdentityDbContext>(options => options.UseInMemoryDatabase("Identity"));
+}
+else
+{
+    builder.Services.AddDbContext<CatalogContext>(c =>
+        c.UseSqlServer(builder.Configuration.GetConnectionString("CatalogConnection")));
+    builder.Services.AddDbContext<AppIdentityDbContext>(options =>
+        options.UseSqlServer(builder.Configuration.GetConnectionString("IdentityConnection")));
+}
 
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
         .AddEntityFrameworkStores<AppIdentityDbContext>()

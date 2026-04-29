@@ -257,17 +257,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Seed catalog data
-        env:
-          SQLCMDPASSWORD: ${{ secrets.SQL_ADMIN_PASSWORD }}
-        run: |
-          /opt/mssql-tools18/bin/sqlcmd \
-            -S "${{ needs.deploy-infrastructure.outputs.sqlServerFqdn }}" \
-            -d "${{ needs.deploy-infrastructure.outputs.databaseName }}" \
-            -U "sqlAdmin" \
-            -i infra/sql/SeedCatalogData.sql \
-            -C \
-            -b
+        uses: azure/sql-action@v2.3
+        with:
+          connection-string: "Server=tcp:${{ needs.deploy-infrastructure.outputs.sqlServerFqdn }},1433;Initial Catalog=${{ needs.deploy-infrastructure.outputs.databaseName }};Persist Security Info=False;User ID=sqlAdmin;Password=${{ secrets.SQL_ADMIN_PASSWORD }};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"
+          path: "./infra/sql/SeedCatalogData.sql"
 
       - name: Database Seed Summary
         run: |

@@ -93,7 +93,7 @@ jobs:
             --output ./publish
       
       - name: Zip webapp
-        run: zip -r webapp.zip ./publish
+        run: cd publish && zip -r ../webapp.zip . && cd ..
 
       - name: Upload webapp artifact
         uses: actions/upload-artifact@v4

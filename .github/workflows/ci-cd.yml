@@ -368,7 +368,7 @@ jobs:
           loadTestConfigFile: './load-tests/API_Testing.yaml'
           loadTestResource: ${{ needs.deploy-infrastructure.outputs.loadTestingName }}
           resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
-          testRunDescription: 'Build #${{ github.run_number }} | Branch: ${{ github.ref_name }} | Commit: ${{ github.sha }}'
+          loadtestRunDescription: 'Build #${{ github.run_number }} | Branch: ${{ github.ref_name }} | Commit: ${{ github.sha }}'
           env: |
             [
               {

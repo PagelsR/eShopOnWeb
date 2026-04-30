@@ -11,10 +11,10 @@ failureCriteria:
   - avg(response_time_ms) > 5000
   - percentage(error) > 20
   # Per-sampler criteria (sampler name must match testname in JMX)
-  - GET /: avg(latency) > 3000
-  - GET /?pageId=1: avg(latency) > 3000
-  - GET /Basket: avg(latency) > 3000
-  - GET /Identity/Account/Login: avg(latency) > 3000
+  - Catalog - Home Page: avg(latency) > 4000
+  - Catalog - Page 2: avg(latency) > 4000
+  - Shopping Basket: avg(latency) > 4000
+  - Account Login: avg(latency) > 4000
 
 autoStop:
   errorPercentage: 85

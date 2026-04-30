@@ -339,6 +339,28 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Load Test Configuration Preview
+        run: |
+          echo "=============================================="
+          echo "  LOAD TEST CONFIGURATION"
+          echo "=============================================="
+          echo ""
+          echo "Target: ${{ needs.deploy-infrastructure.outputs.webAppName }}.azurewebsites.net"
+          echo ""
+          echo "--- Thread Groups (Virtual Users) ---"
+          grep -oP 'testname="\K[^"]+(?="[^>]*enabled="true")' load-tests/API_Testing.jmx | \
+            grep -v "Loop Controller\|Assert\|User Defined" | \
+            paste - <(grep -oP '(?<=num_threads>)\d+' load-tests/API_Testing.jmx) | \
+            awk '{printf "  %-35s %s virtual users\n", $1, $2}'
+          echo ""
+          echo "--- Failure Criteria ---"
+          grep "avg(latency)\|avg(response_time)\|percentage(error)" load-tests/API_Testing.yaml | \
+            sed 's/^  - /  /'
+          echo ""
+          echo "--- Engine Instances ---"
+          grep "engineInstances" load-tests/API_Testing.yaml | awk '{print "  " $2 " engine(s)"}'
+          echo "=============================================="
+
       - name: Run Azure Load Tests
         uses: azure/load-testing@v1
         continue-on-error: true
@@ -346,6 +368,7 @@ jobs:
           loadTestConfigFile: './load-tests/API_Testing.yaml'
           loadTestResource: ${{ needs.deploy-infrastructure.outputs.loadTestingName }}
           resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          testRunDescription: 'Build #${{ github.run_number }} | Branch: ${{ github.ref_name }} | Commit: ${{ github.sha }}'
           env: |
             [
               {

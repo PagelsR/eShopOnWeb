@@ -40,4 +40,11 @@ if ($deployment.PSObject.Properties['databaseName']) {
     Write-Output "DATABASE_NAME=$databaseName" >> $env:GITHUB_OUTPUT
 }
 
+# Extract load testing resource name
+if ($deployment.PSObject.Properties['loadTestingName']) {
+    $loadTestingName = $deployment.loadTestingName.value
+    Write-Host "LOAD_TESTING_NAME=$loadTestingName"
+    Write-Output "LOAD_TESTING_NAME=$loadTestingName" >> $env:GITHUB_OUTPUT
+}
+
 Write-Host "Deployment outputs parsed successfully"

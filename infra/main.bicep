@@ -18,6 +18,7 @@ param webServiceName string = ''
 param appServicePlanName string = ''
 param keyVaultName string = ''
 param sqlServerName string = ''
+param loadTestingServiceName string = ''
 
 @description('Id of the user or app to assign application roles')
 param principalId string = ''
@@ -129,6 +130,17 @@ module keyVault './core/security/keyvault.bicep' = {
   }
 }
 
+// Azure Load Testing for performance testing in CI/CD pipeline
+module loadTesting './modules/loadtesting.bicep' = {
+  name: 'loadtesting'
+  scope: rg
+  params: {
+    location: location
+    loadTestingName: !empty(loadTestingServiceName) ? loadTestingServiceName : 'lt-${resourceToken}'
+    tags: tags
+  }
+}
+
 // Create an App Service Plan to group applications under the same payment plan and SKU
 module appServicePlan './core/host/appserviceplan.bicep' = {
   name: 'appserviceplan'
@@ -162,3 +174,6 @@ output databaseName string = sqlDatabase.outputs.databaseName
 // Application Insights outputs
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = deployAppInsights ? appInsights.outputs.appInsightsConnectionString : ''
 output APPLICATIONINSIGHTS_INSTRUMENTATION_KEY string = deployAppInsights ? appInsights.outputs.appInsightsInstrumentationKey : ''
+
+// Load Testing outputs
+output loadTestingName string = loadTesting.outputs.loadTestingName

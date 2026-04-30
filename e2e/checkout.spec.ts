@@ -42,9 +42,9 @@ test.describe('eShopOnWeb - Checkout Flow', () => {
     await expect(page).toHaveTitle(/Log in/);
 
     // ── 7. Login with demo credentials ───────────────────────────────────────
-    await page.locator('#Input_Email').fill(DEMO_USER);
-    await page.locator('#Input_Password').fill(DEMO_PASSWORD);
-    await page.getByRole('button', { name: 'Log in' }).click();
+    await page.locator('#Login-Input-Email').fill(DEMO_USER);
+    await page.locator('#Login-Input-Password').fill(DEMO_PASSWORD);
+    await page.locator('#Login-Button-Submit').click();
 
     // ── 8. Verify checkout review page ───────────────────────────────────────
     await expect(page).toHaveURL(/Basket\/Checkout/);

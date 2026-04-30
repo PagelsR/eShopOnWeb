@@ -311,7 +311,7 @@ jobs:
 
       - name: Run Playwright Tests
         run: |
-          npx playwright test
+          npx playwright test --reporter=list
         continue-on-error: true
 
       - name: Upload Playwright Report Artifact
